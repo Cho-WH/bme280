@@ -59,7 +59,12 @@ const reducer = (state, action) => {
 
 const notify = () => {
   for (const listener of listeners) {
-    listener(currentState)
+    try {
+      listener(currentState)
+    } catch (error) {
+      // If one UI subscriber throws, it should not prevent others from updating.
+      console.error('State subscriber failed', error)
+    }
   }
 }
 

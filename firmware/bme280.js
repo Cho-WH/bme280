@@ -1,5 +1,6 @@
 bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () {
     inputs = bluetooth.uartReadUntil(serial.delimiters(Delimiters.NewLine))
+    // Web dashboard sends "bme\n"
     if (inputs == "bme") {
         modes = "bme"
         basic.showString("B")
@@ -36,6 +37,7 @@ function Setup () {
     }
 }
 function 전송_자기장 () {
+    // Contract: "temperature,humidity,pressure\n" (3 fields)
     bluetooth.uartWriteLine("" + convertToText(Math.round(BME280.temperature(BME280_T.T_C) / 256) / 100) + "," + convertToText(Environment.octopus_BME280(Environment.BME280_state.BME280_humidity)) + "," + convertToText(Environment.octopus_BME280(Environment.BME280_state.BME280_pressure)))
 }
 let 연결됨 = 0

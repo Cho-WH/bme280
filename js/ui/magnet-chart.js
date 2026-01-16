@@ -121,11 +121,7 @@ export const initMagnetChart = () => {
               if (typeof value !== 'number') {
                 return `${context.dataset.label}`
               }
-              const axisKey = context.dataset.dataKey
-              const config = axisConfig[axisKey]
-              const digits = config?.digits ?? 2
-              const unit = config?.unit ? ` ${config.unit}` : ''
-              return `${context.dataset.label}: ${value.toFixed(digits)}${unit}`
+              return `${context.dataset.label}: ${value.toFixed(2)}`
             },
           },
         },
@@ -133,59 +129,68 @@ export const initMagnetChart = () => {
     },
   })
 
+  let hasRenderedError = false
+
   const render = (state) => {
-    const samples = state.history.slice(-HISTORY_WINDOW)
-    const hasData = samples.length > 0
+    try {
+      const samples = state.history.slice(-HISTORY_WINDOW)
+      const hasData = samples.length > 0
 
-    if (axesEl) {
-      const axesLabel = state.selectedAxes.map((axis) => axisConfig[axis]?.label ?? axis).join(', ')
-      axesEl.textContent = `표시 항목: ${axesLabel || '—'}`
-    }
+      if (axesEl) {
+        const axesLabel = state.selectedAxes.map((axis) => axisConfig[axis]?.label ?? axis).join(', ')
+        axesEl.textContent = `표시 항목: ${axesLabel || '—'}`
+      }
 
-    if (!hasData) {
-      chart.data.labels = []
-      chart.data.datasets = []
+      if (!hasData) {
+        chart.data.labels = []
+        chart.data.datasets = []
+        chart.update('none')
+        if (emptyEl) {
+          emptyEl.hidden = false
+        }
+        return
+      }
+
+      const labels = samples.map((sample) => formatTimestamp(sample.timestamp))
+      const datasets = state.selectedAxes.map((axis) => {
+        const config = axisConfig[axis]
+        const unit = config?.unit ? ` (${config.unit})` : ''
+        return {
+          label: `${config?.label ?? axis}${unit}`,
+          data: samples.map((sample) => sample[axis]),
+          borderColor: config?.color ?? '#38bdf8',
+          backgroundColor: `${config?.color ?? '#38bdf8'}33`,
+          yAxisID: config?.scaleId ?? 'yTemperature',
+          tension: 0.25,
+          fill: false,
+          pointRadius: 0,
+          borderWidth: 2,
+        }
+      })
+
+      chart.data.labels = labels
+      chart.data.datasets = datasets
+
+      // Keep scale visibility in sync without mutating nested option objects (Chart.js resolver recursion guard).
+      const activeAxes = new Set(state.selectedAxes)
+      if (chart.options?.scales) {
+        if (chart.options.scales.yTemperature) chart.options.scales.yTemperature.display = activeAxes.has('temperature')
+        if (chart.options.scales.yHumidity) chart.options.scales.yHumidity.display = activeAxes.has('humidity')
+        if (chart.options.scales.yPressure) chart.options.scales.yPressure.display = activeAxes.has('pressure')
+      }
       chart.update('none')
+
       if (emptyEl) {
+        emptyEl.hidden = true
+      }
+    } catch (error) {
+      console.error('Chart render failed', error)
+      if (!hasRenderedError && emptyEl) {
+        const message = error instanceof Error ? error.message : String(error)
+        emptyEl.textContent = `차트 렌더링 오류: ${message}`
         emptyEl.hidden = false
+        hasRenderedError = true
       }
-      return
-    }
-
-    const labels = samples.map((sample) => formatTimestamp(sample.timestamp))
-    const datasets = state.selectedAxes.map((axis) => {
-      const config = axisConfig[axis]
-      return {
-        label: config?.label ?? axis,
-        dataKey: axis,
-        data: samples.map((sample) => sample[axis]),
-        borderColor: config?.color ?? '#38bdf8',
-        backgroundColor: `${config?.color ?? '#38bdf8'}33`,
-        yAxisID: config?.scaleId ?? 'yTemperature',
-        tension: 0.25,
-        fill: false,
-        pointRadius: 0,
-        borderWidth: 2,
-      }
-    })
-
-    chart.data.labels = labels
-    chart.data.datasets = datasets
-    const activeAxes = new Set(state.selectedAxes)
-    const primaryAxis = state.selectedAxes[0]
-    Object.entries(axisConfig).forEach(([axisKey, config]) => {
-      const scale = chart.options.scales?.[config.scaleId]
-      if (!scale) return
-      const isActive = activeAxes.has(axisKey)
-      scale.display = isActive
-      scale.position = config.position
-      scale.grid = scale.grid || {}
-      scale.grid.drawOnChartArea = isActive && primaryAxis === axisKey
-    })
-    chart.update('none')
-
-    if (emptyEl) {
-      emptyEl.hidden = true
     }
   }
 
