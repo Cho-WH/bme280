@@ -15,18 +15,18 @@ The requirements from `docs/AGENT.md` are:
   - `app.js`: Bootstraps UI modules and optional mock mode (`?mock=1`).
   - `bluetooth.js`: Web Bluetooth (Nordic UART) connection, RX buffering by newline.
   - `state.js`: Global store (`latestSample`, `history`, `selectedAxes`, connection status).
-  - `mockTelemetry.js`: Generates mock magnetometer samples for UI testing.
+  - `mockTelemetry.js`: Generates mock BME280 samples for UI testing.
   - `ui/`
-    - `connection-panel.js`: Connect/disconnect flow; starts notifications; currently sends `magnet\n`.
-    - `axis-selector.js`: Checkbox toggles for `strength/x/y/z`.
-    - `live-stats.js`: Renders latest values for `strength/x/y/z`.
+    - `connection-panel.js`: Connect/disconnect flow; starts notifications; sends `bme\n`.
+    - `axis-selector.js`: Checkbox toggles for `temperature/humidity/pressure`.
+    - `live-stats.js`: Renders latest values for `temperature/humidity/pressure`.
     - `magnet-chart.js`: Chart.js line chart; currently a single shared `y` scale.
     - `data-log.js`: Recent table + CSV download.
     - `banner.js`, `usage-guide.js`: UI helpers for banners and dialogs.
   - `utils/`
-    - `parseSample.js`: Parses `"x,y,z,strength"` into a sample object.
+    - `parseSample.js`: Parses `"temperature,humidity,pressure"` into a sample object.
     - `format.js`: Number/time formatting.
-    - `csv.js`: Builds and downloads CSV (`timestamp,x,y,z,strength`).
+    - `csv.js`: Builds and downloads CSV (`timestamp,temperature_c,humidity_pct,pressure_hpa`).
 - `firmware/`
   - `v1.1-mg.js`, `magnetometer.hex`: Original magnetometer firmware (reference).
   - `bme280.js`, `bme_1.0.hex`: Draft BME280 firmware and a built HEX.

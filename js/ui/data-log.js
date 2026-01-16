@@ -1,4 +1,4 @@
-import { store } from '../state.js'
+import { store, actions } from '../state.js'
 import { formatNumber, formatTimestamp } from '../utils/format.js'
 import { downloadCsv } from '../utils/csv.js'
 
@@ -9,13 +9,22 @@ export const initDataLog = () => {
   if (!root) return
 
   const button = root.querySelector('[data-action="download"]')
+  const clearButton = root.querySelector('[data-action="clear"]')
   const tbody = root.querySelector('[data-bind="rows"]')
+  const countEl = root.querySelector('[data-bind="count"]')
 
   const render = (state) => {
     const history = state.history ?? []
     const hasData = history.length > 0
     if (button) {
       button.disabled = !hasData
+    }
+    if (clearButton) {
+      clearButton.disabled = !hasData
+    }
+
+    if (countEl) {
+      countEl.textContent = `총 ${history.length.toLocaleString()}건`
     }
 
     if (!tbody) return
@@ -46,6 +55,18 @@ export const initDataLog = () => {
     button.addEventListener('click', () => {
       const state = store.getState()
       downloadCsv(state.history)
+    })
+  }
+
+  if (clearButton) {
+    clearButton.addEventListener('click', () => {
+      const state = store.getState()
+      if (!Array.isArray(state.history) || state.history.length === 0) {
+        return
+      }
+      const ok = window.confirm('누적 기록을 초기화할까요? 이 작업은 되돌릴 수 없습니다.')
+      if (!ok) return
+      store.dispatch(actions.clearHistory())
     })
   }
 

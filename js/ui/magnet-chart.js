@@ -28,7 +28,8 @@ const axisConfig = {
   },
 }
 
-const HISTORY_WINDOW = 120
+// 10Hz(100ms) sampling 기준: 최근 1분 = 600개
+const HISTORY_WINDOW = 600
 
 export const initMagnetChart = () => {
   const root = document.querySelector('[data-component="magnet-chart"]')

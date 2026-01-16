@@ -1,4 +1,3 @@
-const HISTORY_LIMIT = 300
 const INITIAL_SELECTED_AXES = ['temperature']
 
 const INITIAL_STATE = {
@@ -17,14 +16,6 @@ const INITIAL_STATE = {
 let currentState = { ...INITIAL_STATE }
 const listeners = new Set()
 
-const appendSample = (history, sample) => {
-  const next = history.concat(sample)
-  if (next.length > HISTORY_LIMIT) {
-    return next.slice(next.length - HISTORY_LIMIT)
-  }
-  return next
-}
-
 const reducer = (state, action) => {
   switch (action.type) {
     case 'setStatus':
@@ -35,7 +26,7 @@ const reducer = (state, action) => {
       return {
         ...state,
         latestSample: action.sample,
-        history: appendSample(state.history, action.sample),
+        history: state.history.concat(action.sample),
         lastUpdatedAt: action.sample.timestamp,
         errorMessage: undefined,
       }
@@ -47,6 +38,14 @@ const reducer = (state, action) => {
     }
     case 'setError':
       return { ...state, errorMessage: action.message }
+    case 'clearHistory':
+      return {
+        ...state,
+        latestSample: undefined,
+        history: [],
+        lastUpdatedAt: undefined,
+        errorMessage: undefined,
+      }
     case 'reset':
       return {
         ...INITIAL_STATE,
@@ -95,7 +94,6 @@ export const store = {
 }
 
 export const constants = {
-  HISTORY_LIMIT,
   INITIAL_SELECTED_AXES,
 }
 
@@ -105,5 +103,6 @@ export const actions = {
   setSample: (sample) => ({ type: 'setSample', sample }),
   setAxes: (axes) => ({ type: 'setAxes', axes }),
   setError: (message) => ({ type: 'setError', message }),
+  clearHistory: () => ({ type: 'clearHistory' }),
   reset: () => ({ type: 'reset' }),
 }

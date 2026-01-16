@@ -10,9 +10,9 @@ export const initMockTelemetry = () => {
   let pressure = randomBetween(990, 1020)
 
   const pushSample = () => {
-    temperature = clamp(temperature + randomBetween(-0.2, 0.2), 18, 30)
-    humidity = clamp(humidity + randomBetween(-0.6, 0.6), 30, 80)
-    pressure = clamp(pressure + randomBetween(-0.4, 0.4), 980, 1030)
+    temperature = clamp(temperature + randomBetween(-0.02, 0.02), 18, 30)
+    humidity = clamp(humidity + randomBetween(-0.06, 0.06), 30, 80)
+    pressure = clamp(pressure + randomBetween(-0.04, 0.04), 980, 1030)
 
     store.dispatch(
       actions.setSample({
@@ -26,7 +26,7 @@ export const initMockTelemetry = () => {
 
   const start = () => {
     if (timerId) return
-    timerId = window.setInterval(pushSample, 1000)
+    timerId = window.setInterval(pushSample, 100)
   }
 
   const stop = () => {
