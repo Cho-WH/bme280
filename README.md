@@ -6,7 +6,7 @@
 micro:bit에서 보내는 BME280(온도/습도/기압) 값을 Web Bluetooth(Nordic UART)로 받아 실시간으로 시각화하고 CSV로 저장하는 웹 대시보드입니다. HTTPS(또는 http://localhost) 환경이 필요합니다.
 
 ## 빠른 시작
-1. micro:bit에 `firmware/bme_1.0.hex`를 복사해 플래시합니다. (또는 `firmware/bme280.js`를 MakeCode에서 빌드)
+1. micro:bit에 `firmware/bme_1.1.hex`를 복사해 플래시합니다. (또는 `firmware/bme280.js`를 MakeCode에서 빌드)
 2. 위 링크를 Chromium 계열 브라우저에서 엽니다. **데스크톱은 Chrome/Edge 최신 버전**, **모바일은 Android Chrome/삼성 브라우저**에서 Web Bluetooth를 지원합니다.
 3. 페이지가 열리면 상단의 **디바이스 연결** 버튼을 눌러 주세요. 브라우저가 장치 목록을 표시하면 `BBC micro:bit`를 선택합니다.
 4. 연결에 성공하면 micro:bit가 `bme` 스트리밍을 시작하고 화면의 카드·차트·로그가 자동 갱신됩니다.
@@ -27,7 +27,7 @@ micro:bit에서 보내는 BME280(온도/습도/기압) 값을 Web Bluetooth(Nord
 
 ## 문제 해결
 - **디바이스가 목록에 보이지 않음**: micro:bit 전원이 켜져 있는지, 다른 장치에 이미 연결돼 있지 않은지 확인하고 다시 스캔하세요.
-- **연결은 되는데 값이 표시되지 않음**: micro:bit에 `firmware/bme_1.0.hex`가 플래시되어 있는지 확인하세요. (자기장 펌웨어는 데이터 포맷이 달라 웹앱에서 파싱되지 않습니다.)
+- **연결은 되는데 값이 표시되지 않음**: micro:bit에 `firmware/bme_1.1.hex`가 플래시되어 있는지 확인하세요. (자기장 펌웨어는 데이터 포맷이 달라 웹앱에서 파싱되지 않습니다.)
 - **연결 직후 오류 발생**: 펌웨어를 다시 플래시하고 micro:bit가 재부팅될 시간을 준 뒤 재시도하세요.
 - **값이 비정상적/고정됨**: BME280 배선(I2C) 및 센서 전원/주소 설정을 확인하세요.
 
