@@ -25,7 +25,10 @@ bluetooth.onBluetoothConnected(function () {
     basic.showIcon(IconNames.Yes)
 })
 bluetooth.onBluetoothDisconnected(function () {
-    control.reset()
+    연결됨 = 0
+    modes = "none"
+    inputs = ""
+    basic.clearScreen()
 })
 function Setup () {
     input.setAccelerometerRange(AcceleratorRange.EightG)
@@ -38,7 +41,7 @@ function Setup () {
 }
 function 전송_자기장 () {
     // Contract: "temperature,humidity,pressure\n" (3 fields)
-    bluetooth.uartWriteLine("" + convertToText(Math.round(BME280.temperature(BME280_T.T_C) / 256) / 100) + "," + convertToText(Environment.octopus_BME280(Environment.BME280_state.BME280_humidity)) + "," + convertToText(Environment.octopus_BME280(Environment.BME280_state.BME280_pressure)))
+    bluetooth.uartWriteLine("" + convertToText(Math.round(BME280.temperature(BME280_T.T_C) / 256) / 100) + "," + convertToText(BME280.humidity()) + "," + convertToText(BME280.pressure(BME280_P.hPa)))
 }
 let 연결됨 = 0
 let inputs = ""

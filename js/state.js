@@ -25,6 +25,7 @@ const reducer = (state, action) => {
     case 'setSample':
       return {
         ...state,
+        connectionStatus: state.connectionStatus === 'waiting_data' ? 'connected' : state.connectionStatus,
         latestSample: action.sample,
         history: state.history.concat(action.sample),
         lastUpdatedAt: action.sample.timestamp,
