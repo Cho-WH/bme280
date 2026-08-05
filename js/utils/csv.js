@@ -13,7 +13,7 @@ export const buildCsv = (samples) => {
   return [CSV_HEADER, ...rows].join('\n')
 }
 
-export const downloadCsv = (samples, filename = 'bme280-log.csv') => {
+export const downloadCsv = (samples, filename = 'bmx280-log.csv') => {
   if (!Array.isArray(samples) || samples.length === 0) {
     return
   }

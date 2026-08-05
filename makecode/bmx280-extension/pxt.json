@@ -1,0 +1,15 @@
+{
+    "name": "bmx280",
+    "version": "0.1.0",
+    "description": "Minimal BMP280/BME280 extension with automatic I2C address detection",
+    "license": "MIT",
+    "dependencies": {
+        "core": "*"
+    },
+    "files": [
+        "README.md",
+        "LICENSE",
+        "bmx280.ts"
+    ],
+    "public": false
+}

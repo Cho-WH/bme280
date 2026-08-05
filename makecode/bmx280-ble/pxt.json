@@ -1,0 +1,24 @@
+{
+    "name": "bmx280-ble",
+    "description": "BMP280/BME280 10 Hz Bluetooth UART firmware",
+    "dependencies": {
+        "core": "*",
+        "bluetooth": "*",
+        "BMX280": "file:../bmx280-extension"
+    },
+    "files": [
+        "main.ts"
+    ],
+    "preferredEditor": "tsprj",
+    "yotta": {
+        "config": {
+            "microbit-dal": {
+                "bluetooth": {
+                    "open": 1,
+                    "whitelist": 0,
+                    "security_level": null
+                }
+            }
+        }
+    }
+}

@@ -1,12 +1,12 @@
-# BME280 프로젝트 개요
+# BMP280 / BME280 프로젝트 개요
 
 ## 1. 프로젝트 소개
-- **목표**: micro:bit에서 Nordic UART(BLE)로 송신하는 BME280(온도/습도/기압) 데이터를 웹앱에서 실시간으로 시각화하고 CSV 형태로 저장합니다.
-- **구성**: 정적 HTML/CSS/JavaScript 기반(single-page) 웹앱과 micro:bit용 펌웨어(`firmware/bme_1.2.hex`) 및 참고 소스(`firmware/bme280.js`)를 함께 보관합니다.
+- **목표**: micro:bit에서 Nordic UART(BLE)로 송신하는 BMP280/BME280 데이터를 웹앱에서 실시간으로 시각화하고 CSV 형태로 저장합니다.
+- **구성**: 정적 HTML/CSS/JavaScript 웹앱, micro:bit용 펌웨어(`firmware/bmx280_ble_v2-dev.hex`), 재현 가능한 MakeCode 프로젝트와 로컬 BMX280 확장을 함께 보관합니다.
 
 ## 2. 저장소 구조 요약
 ```
-BME280/
+bme280/
 ├── index.html           # 메인 페이지
 ├── styles.css           # 전역 스타일
 ├── vendor/chart.umd.js # Chart.js UMD 번들
@@ -19,17 +19,21 @@ BME280/
 │   ├── ui/             # 섹션별 렌더링 모듈
 │   └── utils/          # 파서·포맷터·CSV 유틸리티
 ├── firmware/
-│   ├── bme280.js       # BME280 측정 전용 micro:bit 펌웨어 소스(MakeCode JS)
-│   ├── bme_1.2.hex     # BME280 측정 전용 micro:bit 펌웨어 HEX 파일
+│   ├── bmx280_ble_v2-dev.hex # BMP280/BME280 공용 개발 펌웨어
+│   ├── bme280.js       # 기존 v1.2 참고 소스
+│   ├── bme_1.2.hex     # 기존 v1.2 펌웨어
 │   └── legacy/         # 이전 펌웨어와 다른 실험용 펌웨어 보관
+├── makecode/
+│   ├── bmx280-extension/ # 주소·센서 자동 판별 MakeCode 확장
+│   └── bmx280-ble/       # BLE 펌웨어 MakeCode 프로젝트
 └── docs/
     └── project-overview.md # 현재 문서
 ```
 
 ## 3. 실행 전 준비
 1. **micro:bit 펌웨어 업로드**
-   - `firmware/bme_1.2.hex`를 micro:bit 드라이브로 복사해 플래시합니다.
-   - 필요 시 MakeCode로 커스터마이징하려면 `firmware/bme280.js`를 열어 재빌드할 수 있습니다.
+   - `firmware/bmx280_ble_v2-dev.hex`를 micro:bit 드라이브로 복사해 플래시합니다.
+   - 재빌드할 때는 `makecode/bmx280-ble/` 프로젝트와 `makecode/bmx280-extension/` 로컬 확장을 사용합니다.
 2. **웹앱 호스팅**
    - 정적 서버에서 루트(`index.html`)를 서빙합니다. 예: `python3 -m http.server 8000`.
    - Web Bluetooth 제약 때문에 `https://` 또는 `http://localhost`에서 접근해야 합니다.
@@ -67,4 +71,4 @@ BME280/
 - **커맨드(시작 신호)**: 웹앱이 micro:bit에 `bme\n`을 전송하면 micro:bit가 스트리밍을 시작합니다.
 - **라인 포맷(3필드 CSV)**: `temperature_c,humidity_pct,pressure_hpa\n`
   - 예: `23.45,56.7,1008.23`
-- **펌웨어 API 기준**: 최신 `bme_1.2` 소스는 `BME280.humidity()`와 `BME280.pressure(BME280_P.hPa)`를 사용해 습도/기압을 소수점 단위까지 전송할 수 있습니다.
+- **펌웨어 API 기준**: BMX280 확장이 `0x76/0x77`과 BMP280/BME280을 자동 판별합니다. BMP280은 습도 `0`, BME280은 측정 습도를 전송합니다.

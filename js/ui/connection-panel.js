@@ -25,7 +25,7 @@ const START_COMMAND_RETRY_LIMIT = 5
 const RECONNECT_COOLDOWN_MS = 2000
 
 const FIRST_SAMPLE_TIMEOUT_MESSAGE =
-  'micro:bit와 연결됐지만 BME280 데이터가 수신되지 않습니다. bme_1.2.hex 펌웨어와 BME280 센서 배선을 확인하세요.'
+  'micro:bit와 연결됐지만 센서 데이터가 수신되지 않습니다. bmx280_ble_v2-dev.hex 펌웨어와 BMP280/BME280 배선을 확인하세요.'
 const UNEXPECTED_DISCONNECT_MESSAGE =
   '디바이스 연결이 종료되었습니다. micro:bit 전원과 거리를 확인한 뒤 다시 연결하세요.'
 const RECONNECT_COOLDOWN_MESSAGE = 'micro:bit 연결을 정리하는 중입니다. 잠시 후 다시 연결하세요.'
@@ -50,7 +50,7 @@ const getConnectionErrorMessage = (error) => {
 
   const message = error.message || ''
   if (message.includes('getPrimaryService') || message.includes('UART') || message.includes('BLE 특성')) {
-    return '선택한 micro:bit에서 BME280 UART 서비스를 찾지 못했습니다. bme_1.2.hex 펌웨어가 플래시되어 있는지 확인하세요.'
+    return '선택한 micro:bit에서 센서용 UART 서비스를 찾지 못했습니다. bmx280_ble_v2-dev.hex 펌웨어가 플래시되어 있는지 확인하세요.'
   }
   if (message.includes('GATT')) {
     return 'micro:bit GATT 서버에 연결하지 못했습니다. 전원을 확인하고 잠시 후 다시 시도하세요.'
