@@ -22,15 +22,17 @@ const reducer = (state, action) => {
       return { ...state, connectionStatus: action.status }
     case 'setDevice':
       return { ...state, device: action.payload?.device, service: action.payload?.service, characteristic: action.payload?.characteristic }
-    case 'setSample':
+    case 'setSample': {
+      state.history.push(action.sample)
       return {
         ...state,
         connectionStatus: state.connectionStatus === 'waiting_data' ? 'connected' : state.connectionStatus,
         latestSample: action.sample,
-        history: state.history.concat(action.sample),
+        history: state.history,
         lastUpdatedAt: action.sample.timestamp,
         errorMessage: undefined,
       }
+    }
     case 'setAxes': {
       if (!Array.isArray(action.axes) || action.axes.length === 0) {
         return state
