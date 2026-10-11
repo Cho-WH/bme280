@@ -1,0 +1,678 @@
+/* Preparation UI: viewer, step navigation, instructions and wiring table. */
+[data-screen="prepare"] {
+  --guide-motion-duration: 300ms;
+  --guide-motion-easing: cubic-bezier(.22, 1, .36, 1);
+}
+
+.guide-progress {
+  list-style: none;
+  display: flex;
+  padding: 0;
+  margin: 0 0 22px;
+  gap: 7px;
+  position: relative;
+}
+
+.guide-progress li {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.guide-progress button {
+  width: 100%;
+  border: 0;
+  border-top: 3px solid #dee7e4;
+  border-radius: 0;
+  padding: 9px 4px;
+  min-height: 44px;
+  justify-content: flex-start;
+  background: transparent;
+  color: #718680;
+  font-size: inherit;
+  font-weight: 400;
+  white-space: inherit;
+}
+
+.guide-progress button.past {
+  border-color: #9ab9ae;
+}
+
+.guide-progress button[aria-current=step] {
+  border-color: var(--teal);
+  color: var(--teal);
+  font-weight: 700;
+  border-top-color: transparent;
+}
+
+.guide-progress button:hover:not(:disabled) {
+  background: #e9f1ef;
+  color: var(--teal);
+}
+
+.guide-progress button:focus-visible {
+  outline-offset: -3px;
+}
+
+.guide-progress button:disabled {
+  opacity: .55;
+}
+
+.guide-layout {
+  --guide-view-height: 480px;
+  display: grid;
+  grid-template-columns: minmax(0,1.85fr) minmax(310px,1fr);
+  gap: 25px;
+  overflow-anchor: none;
+  --guide-toolbar-height: 56px;
+}
+
+.model-panel {
+  background: #edf2f5;
+  border: 1px solid #dce5e8;
+  border-radius: 12px;
+  overflow: hidden;
+  align-self: start;
+}
+
+.model-area {
+  min-height: var(--guide-view-height);
+  position: relative;
+}
+
+.model-area iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.model-area figure {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 12px;
+  background: #edf3ef;
+}
+
+.model-area figure img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+
+.model-area figcaption {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.step-panel {
+  padding: 14px 0 0;
+  padding-top: 0;
+}
+
+.step-panel h2 {
+  font-size: 26px;
+  letter-spacing: -.8px;
+  word-break: keep-all;
+  line-height: 1.5;
+}
+
+.step-description {
+  font-size: 15px;
+  margin-top: 18px;
+  color: #506870;
+  line-height: 1.9;
+}
+
+.step-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  min-height: 44px;
+}
+
+.step-actions .primary {
+  flex: 1;
+}
+
+.connection-troubles {
+  margin-top: 25px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  font-size: 13px;
+}
+
+.connection-troubles summary {
+  cursor: pointer;
+  color: var(--muted);
+  padding: 5px 0;
+}
+
+.connection-troubles dt {
+  font-weight: 700;
+  margin-top: 12px;
+}
+
+.connection-troubles dd {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.verification-note {
+  border-left: 2px solid #bc956c;
+  padding-left: 12px;
+  color: #786145;
+  font-size: 12px;
+  line-height: 1.7;
+  margin-top: 20px;
+}
+
+.file-card {
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+  background: var(--pale);
+  border-radius: 8px;
+  margin: 20px 0 12px;
+}
+
+.file-card>span {
+  font-size: 25px;
+}
+
+.file-card strong {
+  font-size: 15px;
+}
+
+.file-card small {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.program-actions .button {
+  width: 100%;
+  margin-bottom: 9px;
+}
+
+.program-actions .muted {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.check-card {
+  background: #e8f2ee;
+  border: 1px solid #cddfd6;
+  border-radius: 8px;
+  margin-top: 22px;
+  padding: 17px;
+}
+
+.check-card>strong {
+  font-size: 15px;
+}
+
+.check-card>p {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.mini-readings {
+  font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.mini-readings b {
+  font-size: 17px;
+  font-weight: 600;
+  display: inline-block;
+  min-width: 6ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.check-card[data-ready=true] {
+  border-color: #549280;
+}
+
+.confirm-battery {
+  width: 100%;
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+.program-feedback {
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 8px 0;
+  position: relative;
+  padding-bottom: 18px;
+}
+
+.program-feedback progress {
+  width: 85%;
+  accent-color: var(--teal);
+  margin-right: 8px;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 10px;
+}
+
+.program-feedback [data-status=success] {
+  color: var(--teal);
+  font-weight: 600;
+}
+
+.program-feedback [data-status=error] {
+  color: #985322;
+}
+
+.skip-program {
+  font-size: 12px;
+  margin-top: 12px;
+}
+
+.model-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #f8faf9;
+  border-bottom: 1px solid var(--line);
+  height: var(--guide-toolbar-height);
+  flex-wrap: nowrap;
+}
+
+.model-toolbar button,.model-toolbar>a {
+  font-size: 12px;
+  min-height: 44px;
+  padding: 8px 10px;
+  white-space: nowrap;
+}
+
+.model-toolbar>a {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.viewer-modes {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: #e5eeeb;
+}
+
+.viewer-modes button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.viewer-modes button[aria-pressed=true] {
+  background: white;
+  color: var(--teal);
+  box-shadow: 0 1px 3px #213d471a;
+}
+
+.viewer-modes button:disabled {
+  color: #758489;
+  opacity: .65;
+}
+
+#restore-view {
+  border-color: transparent;
+  background: transparent;
+}
+
+#restore-view:hover,.model-toolbar>a:hover {
+  background: var(--pale);
+}
+
+.viewer-status {
+  position: absolute;
+  z-index: 2;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  background: #f8faf9f2;
+  pointer-events: none;
+}
+
+.model-panel[data-mode=placement] figure {
+  padding: 12px;
+}
+
+#model-fallback {
+  padding: 16px;
+  background: #fff;
+}
+
+#model-fallback>.muted {
+  font-size: 12px;
+  margin-top: 12px;
+}
+
+.wiring-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.wiring-table caption {
+  text-align: left;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 0 0 14px;
+}
+
+.wiring-table th,.wiring-table td {
+  padding: 12px 10px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.wiring-table thead th {
+  font-size: 11px;
+  background: #f1f5f3;
+}
+
+.wiring-table th:first-child {
+  width: 28%;
+}
+
+.wiring-table tbody th {
+  background: transparent;
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.wiring-table td {
+  position: relative;
+}
+
+.wiring-table td:nth-child(2)::after {
+  content: '↔';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translate(50%,-50%);
+  color: #78928c;
+}
+
+.pin-label {
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.wiring-table td:last-child {
+  padding-left: 20px;
+}
+
+.wiring-table .wire-active {
+  background: #e7f2ed;
+  box-shadow: inset 3px 0 var(--teal);
+}
+
+.wiring-table .wire-active th,.wiring-table .wire-active td {
+  color: #125b61;
+}
+
+.wiring-table small {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--teal);
+  margin-top: 3px;
+}
+
+#model-toolbar[hidden] {
+  display: flex!important;
+  visibility: hidden;
+}
+
+#viewer-modes[hidden] {
+  display: flex!important;
+  visibility: hidden;
+}
+
+#restore-view[hidden] {
+  display: inline-flex!important;
+  visibility: hidden;
+}
+
+.model-toolbar button {
+  flex-shrink: 0;
+}
+
+.step-content {
+  padding: 12px 4px 0 0;
+  overflow: visible;
+}
+
+.step-content[data-group="2"] {
+  min-height: var(--wiring-content-height,0px);
+}
+
+.step-content[data-group="2"] h2 {
+  min-height: 3em;
+}
+
+.step-actions button {
+  min-height: 44px;
+}
+
+.wiring-table tbody tr {
+  height: 62px;
+}
+
+.wiring-table small[hidden] {
+  display: block!important;
+  visibility: hidden;
+}
+
+.program-message {
+  min-height: 3.4em;
+}
+
+.program-progress-text {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.skip-program[hidden] {
+  display: inline-flex!important;
+  visibility: hidden;
+}
+
+.check-title {
+  display: block;
+  min-height: 2.8em;
+}
+
+.check-detail {
+  min-height: 3.5em;
+}
+
+.model-panel[data-mode=placement] {
+  background: #edf3ef;
+}
+
+.program-actions .file-card {
+  padding: 10px 12px;
+  margin: 14px 0 10px;
+}
+
+.program-actions .file-card>span {
+  font-size: 20px;
+}
+
+.program-actions .skip-program {
+  margin-top: 8px;
+}
+
+.model-area iframe,.model-area figure {
+  position: absolute;
+  inset: 0;
+}
+
+.model-area>#model-fallback[hidden] {
+  display: block!important;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.guide-progress::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: var(--active-step-width,0px);
+  background: var(--teal);
+  transform: translateX(var(--active-step-x,0px));
+  transition: transform var(--guide-motion-duration) var(--guide-motion-easing), width var(--guide-motion-duration) var(--guide-motion-easing);
+}
+
+@media(min-width:1500px) {
+  .guide-layout {
+    --guide-view-height: 550px;
+  }
+}
+
+@media(max-width:1100px) {
+  .guide-layout {
+    grid-template-columns: minmax(0,1.5fr) minmax(295px,1fr);
+    gap: 20px;
+    --guide-view-height: 440px;
+  }
+}
+
+@media(max-width:400px) {
+  .model-toolbar {
+    padding: 4px;
+    gap: 2px;
+  }
+
+  .model-toolbar button,.model-toolbar>a {
+    padding: 8px 6px;
+    font-size: 11px;
+  }
+
+  #model-fallback {
+    padding: 12px;
+  }
+
+  .wiring-table th,.wiring-table td {
+    padding: 12px 6px;
+  }
+
+  .wiring-table td:last-child {
+    padding-left: 14px;
+  }
+}
+
+@media(max-width:760px) {
+  .guide-layout {
+    grid-template-columns: 1fr;
+    --guide-view-height: 350px;
+  }
+
+  .guide-progress {
+    gap: 4px;
+    overflow: auto;
+  }
+
+  .guide-progress li {
+    font-size: 10px;
+    min-width: 36px;
+  }
+
+  .step-panel {
+    padding: 0;
+  }
+
+  .step-panel h2 {
+    font-size: 24px;
+  }
+
+  .step-description {
+    margin-top: 12px;
+    font-size: 14px;
+  }
+
+  .wiring-table tbody tr {
+    height: 52px;
+  }
+
+  .wiring-table th,.wiring-table td {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .wiring-table caption {
+    padding-bottom: 10px;
+  }
+}
+
+@media(max-width:420px) {
+  .guide-layout {
+    --guide-toolbar-height: 100px;
+  }
+
+  .model-toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: 44px 44px;
+    gap: 2px;
+  }
+
+  #model-toolbar[hidden] {
+    display: grid!important;
+  }
+
+  .viewer-modes {
+    justify-self: start;
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  #restore-view {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .model-toolbar>a {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+
+@media(prefers-reduced-motion:reduce) {
+  .guide-progress::after {
+    transition: none;
+  }
+}

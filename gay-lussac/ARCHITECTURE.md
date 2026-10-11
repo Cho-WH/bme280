@@ -37,6 +37,7 @@ RunStore는 **현재 열린 실험의 자료와 저장 상태**를 관리하는 
 | Repository | DB 연결, 스키마, 인덱스와 트랜잭션 | 일반 데이터와 완료 응답 |
 | Workspace | 선택·적용·제외 ID, 계산 열, 축·메모, 작업 revision과 되돌리기 | 직렬화 가능한 작업 복사본과 계산 입력 |
 | 표·차트 어댑터 | DOM·canvas·라이브러리 인스턴스, 렌더링 자원 | 사용자 행동과 표시 결과, PNG |
+| 준비 화면 뷰 | 단계·배선표·3D/표 전환의 표시, 단계 버튼 DOM과 이벤트 | 단계 선택·시점 초기화 요청. 실제 단계 이동과 장치 통신은 앱이 실행 |
 
 Workspace가 작업을 수정하면 변경 처리 안에서 RunStore에 **해당 revision의 불변 복사본**을 전달한다. DB 쓰기만 묶어서 지연한다. 같은 변경 가능한 객체를 공유하지 않으며, 원자료의 화면용 캐시와 차트용 점 배열도 읽기·표시용으로만 사용한다.
 
@@ -47,6 +48,8 @@ Workspace가 작업을 수정하면 변경 처리 안에서 RunStore에 **해당
 | `app.js` | 각 모듈의 생성 함수·공개 함수 | 일반 상태, 행동 콜백 |
 | `guide/steps.js`, `guide/viewer-adapter.js` | 단계 설정, 기존 3D 프레임의 메시지 계약 | 현재 안내·모델 적용 상태 |
 | `guide/programmer-adapter.js` | 프로그램 설정, 공식 USB·HEX 라이브러리, 주입받은 전송 전 행동 | 진행률·완료·실패 상태. BLE·측정 상태를 직접 소유하지 않음 |
+| `ui/guide-view.js` | 전달받은 단계·설치 중 여부·뷰어 상태, 준비 화면 DOM, `guide-layout.js` | `render / setBusy / setViewerState / dispose`, 사용자 행동 콜백 |
+| `ui/guide-layout.js` | 전달받은 측정 대상과 비활성 표시 요소 생성 함수, DOM 크기·ResizeObserver·애니메이션 | 배선 설명 최소 높이, 선택 표시 위치, 설명 전환. 장치·저장소·앱 상태를 참조하지 않음 |
 | `measurement/transport.js` | 기존 BLE 모듈, 프로파일, 순수 decoder | `reading / parse-error / connection` |
 | `measurement/session.js` | 공통 데이터 계약, 진단 규칙, 주입받은 저장 행동·시계 | 샘플·사건·측정 상태 |
 | `data/run-store.js` | Repository, 공통 검증 함수, Web Locks·저장 일정 | 스냅샷·저장 상태·완료 응답 |
@@ -57,6 +60,8 @@ Workspace가 작업을 수정하면 변경 처리 안에서 RunStore에 **해당
 | `ui/table-view.js`, `ui/chart-view.js` | 전달받은 표시 모델, DOM·차트 도구 | 샘플 ID를 포함한 행동, PNG |
 
 공통 데이터 계약은 `data/contracts.js`의 JSDoc·검증 함수로 시작한다. 이 파일은 DB·DOM·외부 라이브러리를 가져오지 않는다. 필요한 의존성은 생성 함수의 인자로 전달하며, 범용 주입 컨테이너나 등록 시스템을 먼저 만들지 않는다.
+
+준비 화면의 스타일은 `ui/guide.css`, 공통·측정·분석 스타일은 `styles.css`에서 관리한다. 같은 선택자의 보정 규칙을 파일 끝에 계속 덧붙이지 않고 해당 규칙과 반응형 구간을 갱신한다. ID는 앱의 연결 지점, 명시적인 클래스는 스타일과 표시 재사용에 사용하며 실행 중 ID를 클래스 이름으로 복제하지 않는다. 전환 시간·곡선은 준비 화면의 CSS 변수 한 곳에서 정의한다. 화면 뷰를 해제하면 클릭 이벤트·크기/글꼴 관찰·진행 중 전환을 정리하고 뒤늦은 글꼴 준비 응답도 무시한다.
 
 `IDBDatabase`, idb 객체, Chart 인스턴스, 표 라이브러리의 행 객체는 해당 어댑터 안에 둔다. 저장하는 것은 샘플 ID·열 정의·축·선택·제외·버전이며 라이브러리 설정 객체 전체나 DOM은 저장하지 않는다.
 

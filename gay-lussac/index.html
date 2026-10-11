@@ -7,6 +7,7 @@
   <title>기체의 온도와 압력 · 게이뤼삭 실험</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./ui/guide.css">
   <script defer src="../vendor/chart.umd.js"></script>
   <script defer src="./vendor/idb-8.0.4.umd.js"></script>
   <script defer src="./vendor/papaparse-5.7.0.min.js"></script>
@@ -64,27 +65,32 @@
       <ol id="guide-progress" class="guide-progress" aria-label="준비 단계"></ol>
       <div class="guide-layout">
         <div class="model-panel">
-          <div class="model-toolbar"><span id="viewer-status" role="status">장치 모델</span><button id="restore-view">연결할 곳 보기 ↺</button></div>
+          <div id="model-toolbar" class="model-toolbar">
+            <div id="viewer-modes" class="viewer-modes" role="group" aria-label="장치 보기 방식"><button id="show-3d" aria-pressed="true">3D 보기</button><button id="show-wiring" aria-pressed="false">배선표 보기</button></div>
+            <button id="restore-view">↺ 시점 초기화</button>
+            <a href="../bmp280-wiring/" target="_blank" rel="noopener">크게 보기 ↗</a>
+          </div>
           <div class="model-area">
+            <p id="viewer-status" class="viewer-status" role="status" hidden></p>
             <iframe id="guide-frame" title="BMP280 배선 3D 모델"></iframe>
             <figure id="placement-figure" hidden><img src="./assets/setup.svg" alt="유리 밀폐 용기 안의 마이크로비트·배터리·BMP280 센서와 바깥의 물·고정대. 센서는 벽에 닿지 않고 최대한 용기 중앙에 떠 있도록 하세요."></figure>
-            <div id="model-fallback" hidden><p>연결표로 같은 단계를 따라갈 수 있어요.</p><div class="fallback-diagram" aria-hidden="true"><span>확장 보드</span><span>→</span><span>BMP280</span></div><div id="fallback-table"></div><p class="muted">실제 보드의 단자 이름을 확인하세요.</p></div>
+            <div id="model-fallback" hidden><div id="fallback-table"></div><p class="muted">선 색보다 실제 보드의 단자 이름을 확인하세요.</p></div>
           </div>
-          <div class="model-footer"><span>드래그로 회전 · 휠로 확대</span><label><input id="use-table" type="checkbox"> 연결표로 보기</label><a href="../bmp280-wiring/" target="_blank" rel="noopener">배선 안내 크게 열기 ↗</a></div>
         </div>
         <aside class="step-panel" aria-labelledby="step-title">
-          <p id="step-counter" class="eyebrow"></p><h2 id="step-title" tabindex="-1"></h2><p id="step-description" class="step-description"></p>
-          <div id="program-actions" hidden>
+          <div class="step-content">
+          <p id="step-counter" class="eyebrow step-counter"></p><h2 id="step-title" class="step-title" tabindex="-1"></h2><p id="step-description" class="step-description"></p>
+          <div id="program-actions" class="program-actions" hidden>
             <div class="file-card"><span aria-hidden="true">↓</span><div><strong id="program-name"></strong><small id="program-version"></small></div></div>
             <button id="install-program" class="button primary" disabled>USB로 프로그램 설치</button>
-            <div class="program-feedback"><p id="program-message" role="status"></p><progress id="program-progress" max="100" aria-label="프로그램 전송 진행률" hidden></progress><span id="program-progress-text" aria-hidden="true"></span></div>
-            <p class="muted">파일은 자동으로 준비돼요. 처음에는 장치를 선택해 주세요. 설치하는 동안 USB를 꽂아 두세요.</p>
-            <button id="skip-program" class="text-button">이미 프로그램이 있어요 · 수신 확인</button>
-            <p id="program-verification" class="verification-note"></p>
+            <div class="program-feedback"><p id="program-message" class="program-message" role="status"></p><progress id="program-progress" max="100" aria-label="프로그램 전송 진행률" hidden></progress><span id="program-progress-text" class="program-progress-text" aria-hidden="true"></span></div>
+            <p class="muted">설치가 끝날 때까지 USB를 꽂아 두세요.</p>
+            <button id="skip-program" class="button skip-program">이미 프로그램이 있어요</button>
           </div>
-          <div id="reception-check" class="check-card" hidden><strong id="check-title" role="status">새 값 기다리는 중</strong><p id="check-detail"></p><div class="mini-readings"><span>온도 <b data-temperature>—</b> ℃</span><span>압력 <b data-pressure>—</b> hPa</span></div></div>
-          <button id="confirm-battery" hidden>배터리 연결 후 USB를 분리했어요</button>
+          <div id="reception-check" class="check-card" hidden><strong id="check-title" class="check-title" role="status">새 값 기다리는 중</strong><p id="check-detail" class="check-detail"></p><div class="mini-readings"><span>온도 <b data-temperature>—</b> ℃</span><span>압력 <b data-pressure>—</b> hPa</span></div></div>
+          <button id="confirm-battery" class="confirm-battery" hidden>배터리 연결 후 USB를 분리했어요</button>
           <p id="wiring-note" class="verification-note" hidden>그림은 기준 확장 보드의 연결 예시예요. 센서 모듈에 따라 CSB·SDO 등 추가 단자를 확인해야 해요.</p>
+          </div>
           <div class="step-actions"><button id="previous-step">← 이전</button><button id="next-step" class="primary"></button></div>
           <details class="connection-troubles"><summary>연결이 잘 안 되나요?</summary><dl><dt>장치가 목록에 없어요</dt><dd>전원과 실험 프로그램을 확인하고 다른 탭의 연결을 해제하세요.</dd><dt>전송이 안 돼요</dt><dd>Chrome·Edge에서 데이터 전송이 가능한 USB 케이블을 사용하세요. 다른 탭의 USB 연결을 해제한 뒤 다시 설치하세요.</dd><dt>연결했는데 값이 없어요</dt><dd>프로그램 설치가 완료됐는지, 네 선이 올바른 단자에 꽂혔는지 확인하세요.</dd><dt>USB를 빼면 멈춰요</dt><dd>배터리 연결과 전원을 확인한 뒤 다시 연결하세요.</dd></dl></details>
         </aside>
@@ -95,7 +101,7 @@
       <div class="section-heading"><div><p class="eyebrow">02 / 측정하기</p><h1 tabindex="-1">온도와 압력이 보내는 신호</h1></div><a href="#/prepare">장치 준비 다시 보기 ↗</a></div>
       <p id="measurement-guidance" class="notice">새 측정값을 기다려요. 준비 구간부터 자동으로 기록합니다.</p>
       <div class="reading-grid"><article class="reading-card temperature"><p>센서 온도</p><div><strong data-temperature>—</strong><span>℃</span></div><small>센서가 있는 곳의 온도</small></article><article class="reading-card pressure"><p>용기 안 압력</p><div><strong data-pressure>—</strong><span>hPa</span></div><small>센서에서 받은 절대압</small></article><article class="reception-card"><p class="eyebrow">수신 상태</p><h2 id="live-state">새 값을 기다려요</h2><p id="last-received">아직 받은 값이 없습니다.</p><p id="reading-problem" class="inline-message"></p></article></div>
-      <section class="chart-panel" aria-labelledby="chart-heading"><div class="chart-heading"><h2 id="chart-heading">같은 시간, 두 가지 변화</h2><label>표시 구간 <select id="chart-range"><option value="recent">최근 60초</option><option value="all">전체 기록</option></select></label></div><div class="chart-wrap"><canvas id="live-chart" role="img" aria-label="온도와 압력의 시간 변화. 구간 사이의 선은 연결하지 않습니다."></canvas><p id="chart-empty">장치를 연결하면 여기에 새 값이 표시돼요.</p></div><p id="chart-error" class="inline-message" hidden></p></section>
+      <section class="chart-panel" aria-labelledby="chart-heading"><div class="chart-heading"><h2 id="chart-heading">시간에 대한 온도와 압력</h2><label>표시 구간 <select id="chart-range"><option value="recent">최근 60초</option><option value="all">전체 기록</option></select></label></div><div class="chart-wrap"><canvas id="live-chart" role="img" aria-label="온도와 압력의 시간 변화. 구간 사이의 선은 연결하지 않습니다."></canvas><p id="chart-empty">장치를 연결하면 여기에 새 값이 표시돼요.</p></div><p id="chart-error" class="inline-message" hidden></p></section>
       <div class="measurement-actions"><button id="confirm-placement">용기를 배치했어요</button><button id="heating-start" disabled>가열 시작</button><button id="water-added" disabled>물 추가</button><button id="device-change" disabled>장치 변화</button><button id="pause-recording" disabled>기록 일시정지</button><button id="finish-run" class="primary" disabled>측정 마치기</button><span id="recording-summary"></span></div>
       <form id="device-form" class="device-form" hidden><label>변화 <select id="device-kind"><option value="moved">장치 이동</option><option value="opened">뚜껑 열림</option><option value="sealed">다시 밀폐</option></select></label><label>메모 <input id="device-note" maxlength="200" placeholder="선택 사항"></label><button type="submit">기록하기</button><button type="button" id="cancel-device">취소</button></form>
       <details class="event-log"><summary>조작·수신 기록</summary><ol id="measure-events"></ol></details>

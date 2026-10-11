@@ -13,6 +13,7 @@ import { buildCsv } from './data/files.js';
 import { downloadText } from './ui/download.js';
 import { createRawTable, renderEvents } from './ui/run-view.js';
 import { createAdditionalDialog } from './ui/additional-dialog.js';
+import { createGuideView } from './ui/guide-view.js';
 
 const $ = (id) => document.getElementById(id);
 const transport = createTransport();
@@ -20,7 +21,6 @@ let monitor = createReceptionMonitor();
 const repository = createRepository({ onUnavailable: storageUnavailable });
 let screen = 'home';
 let stepIndex = 0;
-let viewerState = 'loading';
 let connection = transport.getState();
 let chart;
 let lastChartPaint = 0;
@@ -48,41 +48,13 @@ function storageUnavailable(message) {
   $('storage-capability').textContent = message;
   $('saved-status').textContent = message;
 }
-const viewer = createViewerAdapter($('guide-frame'), (state) => {
-  viewerState = state;
-  updateViewer();
+const guideView = createGuideView({ root: document.querySelector('[data-screen="prepare"]'), steps: STEPS,
+  onSelectStep(step) { stepIndex = STEPS.indexOf(step); renderStep(true); },
+  onRestore() { viewer.restoreStep(); },
 });
-const wiring = [
-  ['vcc', '전원', 'V', 'VCC'], ['gnd', '접지', 'G', 'GND'],
-  ['scl', '클록', 'CL · P19', 'SCL'], ['sda', '데이터', 'DA · P20', 'SDA'],
-];
-const table = document.createElement('table');
-table.innerHTML = '<caption>확장 보드와 BMP280 연결표</caption><thead><tr><th>역할</th><th>확장 보드</th><th>센서</th></tr></thead><tbody></tbody>';
-for (const [wire, ...cells] of wiring) {
-  const row = table.tBodies[0].insertRow(); row.dataset.wire = wire;
-  cells.forEach((text) => { row.insertCell().textContent = text; });
-}
-$('fallback-table').append(table);
-const stepButtons = [];
-for (const [index, label] of ['준비물', '배선', 'USB', '프로그램', '수신', '배터리', '용기'].entries()) {
-  const item = document.createElement('li');
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.textContent = `${index + 1} ${label}`;
-  button.addEventListener('click', () => {
-    if (programState.busy) return;
-    stepIndex = STEPS.findIndex((step) => step.group === index + 1);
-    renderStep(true);
-  });
-  item.append(button);
-  stepButtons.push(button);
-  $('guide-progress').append(item);
-}
+const viewer = createViewerAdapter($('guide-frame'), state => guideView.setViewerState(state));
 $('program-name').textContent = PROGRAM.fileName;
 $('program-version').textContent = `${PROGRAM.version} · 실험 프로그램`;
-$('program-verification').textContent = PROGRAM.verification === 'communication-verified'
-  ? 'USB 설치와 배터리 전원의 무선 수신을 실물에서 확인한 프로그램이에요.'
-  : '현재 프로그램은 실물에서 설치와 센서 수신 확인이 필요해요.';
 
 function renderProgram(next) {
   programState = next;
@@ -97,50 +69,16 @@ function renderProgram(next) {
   $('program-busy').hidden = !['connecting', 'flashing'].includes(next.status);
   $('skip-program').hidden = next.status === 'success';
   $('skip-program').disabled = next.busy;
-  $('previous-step').disabled = stepIndex === 0 || next.busy;
-  renderStepNavigation();
+  guideView.setBusy(next.busy);
   renderConnection(connection);
 }
 
-function renderStepNavigation() {
-  const group = STEPS[stepIndex].group;
-  stepButtons.forEach((button, index) => {
-    button.disabled = programState.busy;
-    button.classList.toggle('past', index + 1 < group);
-    if (index + 1 === group) button.setAttribute('aria-current', 'step');
-    else button.removeAttribute('aria-current');
-  });
-}
-
-function updateViewer() {
-  const placement = STEPS[stepIndex].id === 'placement';
-  const fallback = $('use-table').checked || viewerState === 'unavailable';
-  $('guide-frame').hidden = placement || fallback;
-  $('placement-figure').hidden = !placement;
-  $('model-fallback').hidden = placement || !fallback;
-  $('restore-view').disabled = placement;
-  $('use-table').disabled = placement;
-  $('viewer-status').textContent = placement ? '센서와 용기 배치'
-    : fallback ? '배선 연결표' : viewerState === 'applied' ? '현재 단계의 장치 모습' : '장치 모델을 불러오는 중…';
-  for (const row of table.tBodies[0].rows) row.classList.toggle('wire-active', row.dataset.wire === STEPS[stepIndex].model.wire);
-}
 function renderStep(focus = false) {
   const step = STEPS[stepIndex];
-  $('step-counter').textContent = `${String(step.group).padStart(2, '0')} / 07 · ${step.label}`;
-  $('step-title').textContent = step.title;
-  $('step-description').textContent = step.description;
-  $('next-step').textContent = step.action;
-  $('previous-step').disabled = stepIndex === 0 || programState.busy;
-  $('program-actions').hidden = step.id !== 'program';
-  $('reception-check').hidden = !['reception', 'battery'].includes(step.id);
-  $('confirm-battery').hidden = step.id !== 'battery';
-  $('wiring-note').hidden = step.group !== 2;
-  renderStepNavigation();
-  updateViewer();
+  guideView.render(step, { focus });
   if (screen === 'prepare' && step.id !== 'placement') viewer.applyStep(step);
   renderReadings();
   if (step.id === 'program' && programState.status === 'idle') void programmer.prepare();
-  if (focus) $('step-title').focus({ preventScroll: true });
 }
 
 function renderConnection(next) {
@@ -408,8 +346,6 @@ $('next-step').addEventListener('click', () => {
   if (stepIndex < STEPS.length - 1) { stepIndex++; renderStep(true); }
   else { session?.markEvent('placement'); navigate('measure'); }
 });
-$('restore-view').addEventListener('click', () => { $('use-table').checked = false; viewer.restoreStep(); });
-$('use-table').addEventListener('change', updateViewer);
 $('connect').addEventListener('click', () => {
   if (!hasLiveSession() || runStore.getState().source !== 'device') return;
   void transport.connect(PROGRAM.profile, (input) => { session?.acceptInput(input); }, renderConnection);
@@ -493,7 +429,7 @@ window.addEventListener('beforeunload', (event) => {
 });
 window.addEventListener('pagehide', () => {
   // A hidden screen doesn't end the connection; leaving the document does.
-  clearInterval(tick); rawTable.dispose(); runStore?.dispose(); viewer.dispose(); chart?.dispose(); repository.close(); void transport.disconnect(); void programmer.dispose();
+  clearInterval(tick); guideView.dispose(); rawTable.dispose(); runStore?.dispose(); viewer.dispose(); chart?.dispose(); repository.close(); void transport.disconnect(); void programmer.dispose();
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) void runStore?.flush().catch(() => {}); });
 window.addEventListener('pageshow', (event) => { if (event.persisted) location.reload(); });
