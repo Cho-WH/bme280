@@ -5,6 +5,10 @@
 
 micro:bit에서 보내는 BME280(온도/습도/기압) 값을 Web Bluetooth(Nordic UART)로 받아 실시간으로 시각화하고 CSV로 저장하는 웹 대시보드입니다. HTTPS(또는 http://localhost) 환경이 필요합니다.
 
+## 실험 하위 프로젝트
+
+- **[게이뤼삭 실험 — 기체의 온도와 압력](gay-lussac/README.md)**: 3D 준비부터 측정·저장·자유 분석까지 연결하는 전용 앱. [초보자 모드 초기 버전 기획안](gay-lussac/PLAN.md)을 작성했습니다.
+
 ## 빠른 시작
 1. micro:bit에 `firmware/bme_1.2.hex`를 복사해 플래시합니다. (또는 `firmware/bme280.js`를 MakeCode에서 빌드)
 2. 위 링크를 Chromium 계열 브라우저에서 엽니다. **데스크톱은 Chrome/Edge 최신 버전**, **모바일은 Android Chrome/삼성 브라우저**에서 Web Bluetooth를 지원합니다.
