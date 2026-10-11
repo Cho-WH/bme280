@@ -9,28 +9,36 @@
   <link rel="stylesheet" href="./styles.css">
   <script defer src="../vendor/chart.umd.js"></script>
   <script defer src="./vendor/idb-8.0.4.umd.js"></script>
+  <script defer src="./vendor/papaparse-5.7.0.min.js"></script>
   <script type="module" src="./app.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">본문으로 이동</a>
-  <div class="preview-note">연결 확인용 미리보기 <span>현재 측정값은 저장되지 않습니다.</span></div>
   <header class="app-header">
     <a href="#/home" class="brand"><span class="brand-symbol" aria-hidden="true">T<span>↗</span>P</span><span><small>게이뤼삭 실험</small><strong>기체의 온도와 압력</strong></span></a>
     <div class="status-list" aria-label="장치와 저장 상태">
       <div><span class="status-label">연결</span><span id="connection-status" class="status-value">연결 안 됨</span></div>
       <div><span class="status-label">수신</span><span id="reception-status" class="status-value">값 대기</span></div>
-      <div><span class="status-label">저장</span><span id="storage-status" class="status-value">기록 기능 준비 중</span></div>
+      <div><span class="status-label">저장</span><span id="storage-status" class="status-value">실험을 시작해 주세요</span></div>
     </div>
   </header>
   <nav class="main-nav" aria-label="실험 화면">
     <a href="#/home" data-screen-link="home">시작</a>
     <a href="#/prepare" data-screen-link="prepare"><span>01</span> 장치 준비</a>
-    <a href="#/measure" data-screen-link="measure"><span>02</span> 값 살펴보기</a>
+    <a href="#/measure" data-screen-link="measure"><span>02</span> 측정하기</a>
     <a href="#/analysis" data-screen-link="analysis"><span>03</span> 자료 분석</a>
     <span class="nav-caption">온도와 압력의 관계를 탐구해요</span>
   </nav>
   <noscript>이 앱을 사용하려면 JavaScript를 허용해 주세요. 기존 <a href="../bmp280-wiring/">배선 안내</a>의 연결표도 참고할 수 있어요.</noscript>
   <main id="main" tabindex="-1">
+    <section id="run-tools" class="run-tools" hidden aria-label="현재 실험">
+      <div><strong id="run-name"></strong> <span id="run-phase" class="run-phase"></span><p id="run-summary" class="muted"></p></div>
+      <div class="button-row"><button id="additional-measurement" hidden>추가 측정</button><button id="export-csv" disabled>전체 CSV</button><button id="new-run">새 실험</button></div>
+    </section>
+    <p id="run-message" class="inline-message" role="status"></p>
+    <p id="paused-notice" class="notice" role="status" hidden>기록 일시정지 중 · 현재 값만 표시하며 새 값은 저장되지 않습니다. 측정하기 화면에서 기록을 재개할 수 있어요.</p>
+    <section id="storage-problem" class="notice" role="status" hidden><p id="storage-detail"></p><div class="button-row"><button id="retry-save">다시 저장</button><button id="temporary-analysis" hidden>임시 자료로 분석</button></div></section>
+    <section id="resume-panel" class="notice" hidden><p id="resume-message"></p><div class="button-row"><button id="resume-run">이어 측정</button><button id="analyze-unfinished">여기까지 분석</button><button id="retry-lock" hidden>작성 권한 다시 확인</button></div></section>
     <p id="program-busy" class="notice" role="status" hidden>USB 프로그램 설치를 진행 중이에요. 장치 준비 화면에서 진행 상황을 확인하고 USB와 이 탭을 유지해 주세요.</p>
     <section id="connection-tools" class="connection-tools" aria-label="마이크로비트 연결" hidden>
       <div><strong id="device-name">마이크로비트 연결</strong><p id="connection-help">전원을 켠 뒤 사용할 장치를 선택하세요.</p></div>
@@ -84,21 +92,38 @@
     </section>
 
     <section data-screen="measure" hidden>
-      <div class="section-heading"><div><p class="eyebrow">02 / 값 살펴보기</p><h1 tabindex="-1">온도와 압력이 보내는 신호</h1></div><a href="#/prepare">장치 준비 다시 보기 ↗</a></div>
-      <p class="notice">지금은 연결 확인용 화면이에요. 최근 60초의 값만 표시하며, 측정 기록과 자동 저장은 준비 중입니다.</p>
+      <div class="section-heading"><div><p class="eyebrow">02 / 측정하기</p><h1 tabindex="-1">온도와 압력이 보내는 신호</h1></div><a href="#/prepare">장치 준비 다시 보기 ↗</a></div>
+      <p id="measurement-guidance" class="notice">새 측정값을 기다려요. 준비 구간부터 자동으로 기록합니다.</p>
       <div class="reading-grid"><article class="reading-card temperature"><p>센서 온도</p><div><strong data-temperature>—</strong><span>℃</span></div><small>센서가 있는 곳의 온도</small></article><article class="reading-card pressure"><p>용기 안 압력</p><div><strong data-pressure>—</strong><span>hPa</span></div><small>센서에서 받은 절대압</small></article><article class="reception-card"><p class="eyebrow">수신 상태</p><h2 id="live-state">새 값을 기다려요</h2><p id="last-received">아직 받은 값이 없습니다.</p><p id="reading-problem" class="inline-message"></p></article></div>
-      <section class="chart-panel" aria-labelledby="chart-heading"><div class="chart-heading"><h2 id="chart-heading">같은 시간, 두 가지 변화</h2><span>최근 60초 · 수신 시각 기준</span></div><div class="chart-wrap"><canvas id="live-chart" role="img" aria-label="최근 60초의 온도와 압력 변화. 현재 수치는 위에 글자로 표시됩니다."></canvas><p id="chart-empty">장치를 연결하면 여기에 새 값이 표시돼요.</p></div><p id="chart-error" class="inline-message" hidden></p></section>
-      <div class="measurement-actions" aria-describedby="recording-soon"><button disabled>가열 시작</button><button disabled>물 추가</button><button disabled>장치 변화</button><button disabled>측정 마치기</button><span id="recording-soon">측정 기록 기능 준비 중</span></div>
+      <section class="chart-panel" aria-labelledby="chart-heading"><div class="chart-heading"><h2 id="chart-heading">같은 시간, 두 가지 변화</h2><label>표시 구간 <select id="chart-range"><option value="recent">최근 60초</option><option value="all">전체 기록</option></select></label></div><div class="chart-wrap"><canvas id="live-chart" role="img" aria-label="온도와 압력의 시간 변화. 구간 사이의 선은 연결하지 않습니다."></canvas><p id="chart-empty">장치를 연결하면 여기에 새 값이 표시돼요.</p></div><p id="chart-error" class="inline-message" hidden></p></section>
+      <div class="measurement-actions"><button id="confirm-placement">용기를 배치했어요</button><button id="heating-start" disabled>가열 시작</button><button id="water-added" disabled>물 추가</button><button id="device-change" disabled>장치 변화</button><button id="pause-recording" disabled>기록 일시정지</button><button id="finish-run" class="primary" disabled>측정 마치기</button><span id="recording-summary"></span></div>
+      <form id="device-form" class="device-form" hidden><label>변화 <select id="device-kind"><option value="moved">장치 이동</option><option value="opened">뚜껑 열림</option><option value="sealed">다시 밀폐</option></select></label><label>메모 <input id="device-note" maxlength="200" placeholder="선택 사항"></label><button type="submit">기록하기</button><button type="button" id="cancel-device">취소</button></form>
+      <details class="event-log"><summary>조작·수신 기록</summary><ol id="measure-events"></ol></details>
     </section>
 
     <section data-screen="analysis" hidden>
       <div class="section-heading"><div><p class="eyebrow">03 / 자료 분석</p><h1 tabindex="-1">자료 속에서 관계를 찾아요</h1></div><details class="analysis-hint"><summary>분석 도움말</summary><p>분석할 자료를 고르고 X축과 Y축을 정해 보세요. 계산 열과 직선 맞추기는 원하는 순서로 사용할 수 있어요.</p></details></div>
-      <p class="notice">분석 도구를 준비하고 있어요. 지금은 표와 그래프의 화면 구성을 살펴볼 수 있습니다.</p><p id="analysis-message" role="status"></p>
-      <div class="analysis-toolbar"><button disabled>자료 선택</button><button disabled>계산 열</button><button disabled>그래프 만들기</button><button disabled>직선 맞추기</button><button disabled>내보내기</button></div>
+      <p class="notice">원자료를 확인하거나 전체 CSV로 내보낼 수 있어요. 자료 선택·계산·회귀 도구는 다음 단계에서 제공됩니다.</p><p id="analysis-message" role="status"></p>
+      <button id="finish-for-analysis" class="primary" hidden>측정을 마치고 분석</button>
+      <button id="apply-new-data" hidden>새 자료 적용</button>
+      <div class="analysis-toolbar"><button disabled>자료 선택</button><button disabled>계산 열</button><button disabled>그래프 만들기</button><button disabled>직선 맞추기</button></div>
       <div class="analysis-tabs" role="group" aria-label="분석 영역"><button data-analysis-pane="table" aria-pressed="true">표</button><button data-analysis-pane="graph" aria-pressed="false">그래프</button></div>
-      <div class="analysis-grid" data-active-pane="table"><section class="table-panel" data-pane="table"><h2>측정 자료</h2><div class="table-scroll"><table><thead><tr><th>선택</th><th>시각</th><th>온도 (℃)</th><th>압력 (hPa)</th></tr></thead><tbody><tr><td colspan="4" class="empty-cell">아직 분석할 측정 자료가 없습니다.</td></tr></tbody></table></div></section><section class="graph-panel" data-pane="graph"><h2>나의 그래프</h2><div class="graph-placeholder"><span aria-hidden="true">↗</span><p>자료와 축을 골라<br>두 값의 관계를 살펴보세요.</p></div></section></div>
+      <div class="analysis-grid" data-active-pane="table"><section class="table-panel" data-pane="table"><h2>측정 자료</h2><div id="raw-scroll" class="table-scroll" tabindex="0" role="region" aria-label="측정 원자료 연속 스크롤" aria-describedby="table-status"><table class="raw-table"><colgroup><col style="width:10%"><col style="width:9%"><col style="width:23%"><col style="width:17%"><col style="width:18%"><col style="width:23%"></colgroup><thead><tr><th>ID</th><th>구간</th><th>수신 시각</th><th>온도 (℃)</th><th>압력 (hPa)</th><th>값 확인</th></tr></thead><tbody id="raw-rows"></tbody></table></div><p id="table-status" class="table-status"></p></section><section class="graph-panel" data-pane="graph"><h2>나의 그래프</h2><div class="graph-placeholder"><span aria-hidden="true">↗</span><p>자료와 축을 골라<br>두 값의 관계를 살펴보세요.</p></div></section></div>
+      <details class="event-log"><summary>조작·수신 기록</summary><ol id="analysis-events"></ol></details>
     </section>
   </main>
+  <dialog id="additional-dialog" class="additional-dialog" aria-labelledby="additional-title" aria-describedby="additional-description">
+    <form>
+      <h2 id="additional-title">추가 측정 전 조건 확인</h2>
+      <p id="additional-description">이전 측정과 비교해 확인해 주세요. 기존 자료를 보존하고 같은 실험의 새 구간에 기록합니다.</p>
+      <div data-conditions class="condition-fields"></div>
+      <p data-changed class="notice" hidden>조건이 달라졌다면 새 실험으로 나누는 것을 권해요. 같은 실험에서 비교하려면 달라졌거나 확실하지 않은 점을 메모해 주세요.</p>
+      <label class="condition-note">조건 메모 <textarea name="note" maxlength="500" rows="3" placeholder="변경 없음이면 선택 사항"></textarea></label>
+      <p class="muted">추가 자료는 기존 분석에 자동으로 포함되지 않아요. 추가 측정 후 용기 배치와 새 값 수신을 다시 확인합니다.</p>
+      <p data-error class="inline-message" role="alert"></p>
+      <div class="button-row"><button type="button" data-cancel>취소</button><button type="submit" class="primary" disabled>확인하고 추가 측정</button></div>
+    </form>
+  </dialog>
   <footer class="app-footer"><span>기체의 온도와 압력</span><a href="../">기존 측정 도구 열기 ↗</a><span id="storage-capability">브라우저 저장소 확인 중</span></footer>
 </body>
 </html>

@@ -1,9 +1,10 @@
 import { initialReception, step } from '../diagnostics/reception.js';
 import { CONNECTION } from '../program-config.js';
 import { isValidReading } from '../data/contracts.js';
+import { discontinuityReason } from '../diagnostics/continuity.js';
 
 // A bounded display cache for connection checks, never the experiment record.
-// M2's session can keep using this observer while sending all raw inputs to RunStore.
+// The session uses this observer while sending all raw inputs to RunStore.
 export function createReceptionMonitor(config = CONNECTION) {
   let reception = initialReception();
   let battery = initialReception();
@@ -13,17 +14,14 @@ export function createReceptionMonitor(config = CONNECTION) {
   let segment = 0;
   let lastInput = null;
   let problem = '';
-  function accept(input) {
+  function accept(input, { record = true } = {}) {
     if (input.type === 'reading') latest = input;
-    const discontinuity = lastInput && (input.attemptId !== lastInput.attemptId
-      || input.monotonicAt - lastInput.monotonicAt >= config.staleMs
-      || input.monotonicAt < lastInput.monotonicAt || input.receivedAt < lastInput.receivedAt
-      || Math.abs((input.receivedAt - lastInput.receivedAt) - (input.monotonicAt - lastInput.monotonicAt)) >= config.staleMs);
+    const discontinuity = discontinuityReason(lastInput, input, config.staleMs);
     if (discontinuity) { reception = initialReception(); battery = initialReception(); }
     if (discontinuity || !isValidReading(input)) ++segment;
     reception = step(reception, input, input.monotonicAt, config).nextState;
     if (batteryAfter !== null && input.monotonicAt > batteryAfter) battery = step(battery, input, input.monotonicAt, config).nextState;
-    if (input.type === 'reading') {
+    if (input.type === 'reading' && record) {
       points.push({ ...input, segmentId: segment });
       points = points.filter((point) => input.monotonicAt - point.monotonicAt <= 60000).slice(-6000);
     }

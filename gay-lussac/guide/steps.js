@@ -29,6 +29,6 @@ export const STEPS = [
     action: '용기 배치 살펴보기', model: view('ports') },
   { id: 'placement', group: 7, label: '용기 배치', title: '장치를 한 용기 안에 넣어요',
     description: 'USB를 분리한 마이크로비트·확장 보드와 배터리는 용기 바닥에, 센서는 중간 높이의 공기 중에 놓으세요. 센서가 벽이나 다른 부품에 닿지 않게 하고 연결선도 모두 안에 넣어 뚜껑을 밀폐합니다. 물은 용기 바깥 수조에만 두고, 용기는 외부에서 고정하세요.',
-    action: '배치했어요 · 값 살펴보기', model: view() },
+    action: '배치했어요 · 측정하기', model: view() },
 ];
 export const getStep = (id) => STEPS.find((step) => step.id === id) || STEPS[0];

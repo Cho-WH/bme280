@@ -1,0 +1,3 @@
+# Preserve upstream bytes so documented SHA-256 values survive Windows checkouts.
+*.js -text
+*LICENSE* -text

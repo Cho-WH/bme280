@@ -5,8 +5,8 @@ export const DATABASE = Object.freeze({ name: 'bme280.gay-lussac', version: 1 })
  * attemptId:number, receivedAt:number, monotonicAt:number}} Reading
  * @typedef {{type:'parse-error',reasonCode:string,attemptId:number,receivedAt:number,monotonicAt:number}} ParseError
  * @typedef {{id:string,schemaVersion:number,runRevision:number,name:string,createdAt:number,updatedAt:number,
- * status:'open'|'complete'|'interrupted',program:object,profile:object,source:'device'|'replay'|'import',
- * segments:object[],lastSavedSampleId:number}} Run
+ * status:'open'|'paused'|'complete'|'interrupted',program:object,profile:object,source:'device'|'replay'|'import',
+ * segments:object[],lastSavedSampleId:number,lastSavedEventId:number}} Run
  * @typedef {{runId:string,sampleId:number,segmentId:number|null,receivedAt:number,
  * segmentElapsedMs:number|null,temperatureC:number,pressureHpa:number,validity:object}} Sample
  * @typedef {{runId:string,eventId:number,receivedAt:number,segmentId:number|null,
