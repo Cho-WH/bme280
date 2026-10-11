@@ -7,7 +7,7 @@ micro:bit에서 보내는 BME280(온도/습도/기압) 값을 Web Bluetooth(Nord
 
 ## 실험 하위 프로젝트
 
-- **[게이뤼삭 실험 — 기체의 온도와 압력](gay-lussac/README.md)**: 3D 준비부터 측정·저장·자유 분석까지 연결하는 전용 앱. [초보자 모드 초기 버전 기획안](gay-lussac/PLAN.md)을 작성했습니다.
+- **[게이뤼삭 실험 — 기체의 온도와 압력](gay-lussac/README.md)**: 3D 준비부터 측정·저장·자유 분석까지 연결하는 전용 앱. [초보자 모드 기획안](gay-lussac/PLAN.md)과 [구현 설계](gay-lussac/DESIGN.md)를 준비했습니다.
 
 ## 빠른 시작
 1. micro:bit에 `firmware/bme_1.2.hex`를 복사해 플래시합니다. (또는 `firmware/bme280.js`를 MakeCode에서 빌드)
