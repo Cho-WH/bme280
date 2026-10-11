@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 400" fill="none">
+  <title>마이크로비트·배터리·센서를 함께 넣은 밀폐 용기</title>
+  <desc>용기 바닥에 마이크로비트와 배터리를 놓고 BMP280 센서는 중간 높이의 공기 중에 배치합니다. 모든 배선은 용기 안에 있으며 측정값은 Bluetooth로 전송합니다. 물은 용기 바깥 수조에만 있고 외부 지지대로 용기를 고정합니다. 내부 배치를 보여 주는 개념도입니다.</desc>
+  <defs><marker id="sensor-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L7 4L1 7" fill="none" stroke="#68878e" stroke-width="1"/></marker></defs>
+  <!-- Water is behind the cutaway of the dry jar, never inside it. -->
+  <path d="M127 221H475V331Q475 347 459 347H143Q127 347 127 331Z" fill="#dceff0"/>
+  <path d="M127 200V331Q127 347 143 347H459Q475 347 475 331V200" stroke="#8fbbc0" stroke-width="3"/>
+  <path d="M129 221Q151 213 177 221T229 221T281 221T333 221T385 221T437 221T473 221" stroke="#72b0b7" stroke-width="2"/>
+  <!-- Closed glass lid, gasket and clasp; no cable crosses the seal. -->
+  <path d="M231 101H387V119Q406 128 406 149V314Q406 328 392 328H226Q212 328 212 314V149Q212 128 231 119Z" fill="#f7f9f5" stroke="#486c77" stroke-width="3"/>
+  <rect x="222" y="96" width="174" height="12" rx="5" fill="#cb9462"/>
+  <rect x="221" y="81" width="176" height="19" rx="8" fill="#e4eeea" stroke="#486c77" stroke-width="3"/>
+  <path d="M220 105H207V132H224M398 105H414V132H397" stroke="#8b9192" stroke-width="4" stroke-linejoin="round"/>
+  <g stroke-width="2" stroke-linecap="round">
+    <path d="M280 200C251 219 252 239 257 263" stroke="#916777"/>
+    <path d="M290 200C263 220 263 239 267 263" stroke="#899997"/>
+    <path d="M300 200C275 220 274 239 277 263" stroke="#c3a257"/>
+    <path d="M310 200C287 220 285 239 287 263" stroke="#4c6973"/>
+    <path d="M353 277C340 261 344 242 327 243V266" stroke="#be6a5a"/>
+    <path d="M353 286C335 269 339 251 322 251V266" stroke="#4c6973"/>
+  </g>
+  <rect x="273" y="166" width="51" height="35" rx="5" fill="#2c8990"/>
+  <rect x="288" y="175" width="20" height="14" rx="2" fill="#d4e0d8"/>
+  <g fill="#daac61"><circle cx="281" cy="196" r="2"/><circle cx="291" cy="196" r="2"/><circle cx="301" cy="196" r="2"/><circle cx="311" cy="196" r="2"/></g>
+  <!-- Board and battery pack are both inside, at the bottom. -->
+  <rect x="234" y="259" width="105" height="64" rx="6" fill="#dce6e2" stroke="#91a6a7" stroke-width="2"/>
+  <rect x="241" y="264" width="91" height="51" rx="5" fill="#29464e"/>
+  <g fill="#cf795c"><circle cx="272" cy="276" r="2"/><circle cx="283" cy="276" r="2"/><circle cx="294" cy="276" r="2"/><circle cx="272" cy="287" r="2"/><circle cx="283" cy="287" r="2"/><circle cx="294" cy="287" r="2"/></g>
+  <g stroke="#a9bcba" stroke-width="2"><circle cx="251" cy="288" r="4"/><circle cx="321" cy="288" r="4"/></g>
+  <g fill="#daac61"><rect x="248" y="305" width="10" height="10" rx="2"/><rect x="271" y="305" width="10" height="10" rx="2"/><rect x="294" y="305" width="10" height="10" rx="2"/><rect x="317" y="305" width="10" height="10" rx="2"/></g>
+  <rect x="351" y="255" width="39" height="68" rx="5" fill="#4c5b60"/>
+  <rect x="356" y="262" width="12" height="52" rx="4" fill="#d9b077"/>
+  <rect x="373" y="262" width="12" height="52" rx="4" fill="#d9b077"/>
+  <path d="M360 267H364M362 265V269M377 309H381" stroke="#4c5b60" stroke-width="1.5"/>
+  <!-- External restraint follows the planned setup, not an internal weight. -->
+  <path d="M448 153V351M405 147H448M405 161H448" stroke="#8b9192" stroke-width="6" stroke-linecap="round"/>
+  <path d="M428 354H467" stroke="#777f81" stroke-width="8" stroke-linecap="round"/>
+  <g stroke="#398d95" stroke-width="2.5" stroke-linecap="round"><path d="M420 91Q430 102 420 113M430 84Q449 102 430 120"/></g>
+  <g font-family="system-ui, 'Malgun Gothic', sans-serif" font-size="16" fill="#345762">
+    <text x="309" y="55" text-anchor="middle" font-weight="600">유리 밀폐 용기</text>
+    <text x="31" y="174">BMP280 센서</text>
+    <path d="M146 176H183L269 183" fill="none" stroke="#88a2a8"/>
+    <text x="30" y="277">마이크로비트</text>
+    <path d="M135 270H186L236 282" fill="none" stroke="#88a2a8"/>
+    <text x="483" y="277">배터리</text><path d="M476 284H418L394 289" fill="none" stroke="#88a2a8"/>
+    <text x="481" y="174">고정대</text><path d="M474 179L452 166" fill="none" stroke="#88a2a8"/>
+    <text x="158" y="324" fill="#40828b">물</text>
+    <path d="M344 363C344 306 348 237 319 205" fill="none" stroke="#68878e" stroke-width="1" marker-end="url(#sensor-arrow)"/>
+    <text x="310" y="387" text-anchor="middle" font-size="14">센서는 벽에 닿지 않고 최대한 용기 중앙에 떠 있도록 하세요.</text>
+  </g>
+</svg>

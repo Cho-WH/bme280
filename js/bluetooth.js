@@ -47,7 +47,7 @@ const emitDisconnected = () => {
 
 const handleNotification = (event) => {
   const target = event.target
-  if (!target || !target.value) {
+  if (!target || target !== rxCharacteristic || !target.value) {
     return
   }
   const chunk = decoder.decode(target.value)
@@ -66,7 +66,9 @@ const handleNotification = (event) => {
   }
 }
 
-function handleGattDisconnection() {
+function handleGattDisconnection(event) {
+  if (event?.target !== device) return
+  rxCharacteristic?.removeEventListener('characteristicvaluechanged', handleNotification)
   removeGattListener()
   resetInternals()
   emitDisconnected()

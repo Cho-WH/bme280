@@ -5,7 +5,7 @@
 | 버전·검토일 | GL-ARCH-v0.1 · 2026-10-11 |
 | 적용 범위 | `gay-lussac/`의 초보자 모드와 이후 같은 엔진을 사용하는 모드 |
 | 관련 문서 | [기획](PLAN.md) · [화면과 구현 설계](DESIGN.md) |
-| 현재 상태 | 설계 검토와 의존성 선택. 신규 라이브러리 설치·앱 구현은 다음 단계에서 진행 |
+| 현재 상태 | M1 화면·연결·스키마 구현. 공식 USB·idb 도입, 기존 Chart.js 재사용. 설치·Bluetooth·배터리 수신 확인 |
 
 > [!IMPORTANT]
 > **각 상태의 작성자는 하나로 정하고, 외부 도구는 정해진 어댑터에서 사용한다.** 화면이나 라이브러리를 바꿔도 원자료·분석 정의·점검 규칙이 유지되는 구조를 구현 기준으로 삼는다.
@@ -31,6 +31,7 @@ RunStore는 **현재 열린 실험의 자료와 저장 상태**를 관리하는 
 |---|---|---|
 | 앱 제어기 | 현재 화면, 열린 모듈의 참조, 사용자 행동의 호출 순서 | 각 화면에 필요한 상태와 행동 함수 |
 | 입력 어댑터 | 장치 연결 시도, 프로토콜 해석, 첫 값 대기·재시도 | 표준 수신 또는 오류 입력 |
+| 프로그램 전송 어댑터 | 준비한 HEX, 공식 USB 객체, 전송 작업과 완료 상태 | 일반 진행 상태와 `prepare / install / dispose` 행동 |
 | 측정 세션 | 입력 마감, 샘플 번호, 구간과 시간 기준, 진단 실행 상태 | 추가할 샘플·사건 내용, 측정 표시 상태 |
 | RunStore | 열린 Run, 사건 ID 할당, 미저장 자료, 저장 상태, 잠금 수명, 일관된 읽기 | 샘플 조회·스냅샷·저장 결과 |
 | Repository | DB 연결, 스키마, 인덱스와 트랜잭션 | 일반 데이터와 완료 응답 |
@@ -45,6 +46,7 @@ Workspace가 작업을 수정하면 변경 처리 안에서 RunStore에 **해당
 |---|---|---|
 | `app.js` | 각 모듈의 생성 함수·공개 함수 | 일반 상태, 행동 콜백 |
 | `guide/steps.js`, `guide/viewer-adapter.js` | 단계 설정, 기존 3D 프레임의 메시지 계약 | 현재 안내·모델 적용 상태 |
+| `guide/programmer-adapter.js` | 프로그램 설정, 공식 USB·HEX 라이브러리, 주입받은 전송 전 행동 | 진행률·완료·실패 상태. BLE·측정 상태를 직접 소유하지 않음 |
 | `measurement/transport.js` | 기존 BLE 모듈, 프로파일, 순수 decoder | `reading / parse-error / connection` |
 | `measurement/session.js` | 공통 데이터 계약, 진단 규칙, 주입받은 저장 행동·시계 | 샘플·사건·측정 상태 |
 | `data/run-store.js` | Repository, 공통 검증 함수, Web Locks·저장 일정 | 스냅샷·저장 상태·완료 응답 |
@@ -94,16 +96,17 @@ RunStore의 `appendEvent()`가 측정 중 사건과 정정 사건 모두에 실�
 
 ## 5 초기 라이브러리 선택
 
-아래는 2026-10-11에 공식 자료와 저장소에서 확인한 선택이다. 기존 Chart.js 외 신규 패키지는 **도입 예정**이며, 실제 파일 확보·고정은 해당 구현 단계에서 수행한다.
+아래는 2026-10-11에 공식 자료와 저장소에서 확인한 선택이다. M1에서 **idb 8.0.4**를 고정했고 기존 Chart.js를 연결했다. 배포 파일·해시·라이선스는 [vendor/README.md](vendor/README.md)에 기록한다. Papa Parse는 M2에서 도입한다.
 
 | 영역 | 초기 선택 | 역할·경계 | 버전·라이선스 |
 |---|---|---|---|
 | 그래프 | 기존 **Chart.js** 재사용 | `ui/chart-view.js`에서 시간 그래프·산점도·회귀선 표시·PNG | 저장소의 **4.5.0 / MIT** [C1] |
 | 브라우저 DB | **idb** 추가 | `data/repository.js` 내부에서 IndexedDB를 Promise 방식으로 사용 | **8.0.4 / ISC** [I1], [I2] |
+| USB 프로그램 설치 | **@microbit/microbit-connection** | `guide/programmer-adapter.js`에서 공식 USB·HEX API를 사용 | **1.0.0 / MIT**, 포함 의존성·라이선스는 vendor에 기록 [U1] |
 | CSV | **Papa Parse** 추가 | `data/files.js`에서 CSV 읽기·쓰기. 실험 스키마 검증은 앱 소유 | **5.7.0 / MIT** [P1], [P2], [P3] |
 | 분석 표 | 페이지 단위 **HTML table** | 선택·정렬·필터 상태는 Workspace, 표는 현재 페이지 렌더링 | 브라우저 기본 기능 |
 | 사칙연산·기초 회귀 | 현재 범위의 순수 계산 함수 | 단순 최소제곱, 유효점·R²·x절편 상태 처리 | 추가 패키지 없음 |
-| 연결·잠금·다운로드 | Web Bluetooth·Web Locks·Blob 등 | 정해진 입력·저장·UI 경계에서 사용 | 브라우저 기능. 공식 USB 전송은 기존 외부 도구 경로 |
+| 연결·잠금·다운로드 | Web Bluetooth·Web Locks·Blob 등 | 정해진 입력·저장·UI 경계에서 사용 | 브라우저 기능. USB는 공식 라이브러리를 감싼 별도 어댑터 |
 
 ### 선택 이유
 
@@ -130,9 +133,10 @@ RunStore의 `appendEvent()`가 측정 중 사건과 정정 사건 모두에 실�
 ## 7 배포와 유지보수
 
 - 기존 Chart.js 고정본은 필요한 기능이 충족되는 범위에서 재사용한다. 새 기능·문제 해결이 필요한 때 버전 변경을 검토한다.
-- idb와 Papa Parse는 정확한 버전의 배포 파일을 `gay-lussac/vendor/`에 보관할 예정이다. 버전·공식 출처·해시·라이선스 파일을 함께 기록한다. 실제 포함된 파일을 확인한 뒤 의존성 목록을 갱신한다.
+- idb는 정확한 버전의 UMD 배포 파일을 `gay-lussac/vendor/`에 보관한다. Papa Parse도 M2에서 같은 방식으로 도입한다. 버전·공식 출처·해시·라이선스 파일을 함께 기록하고, 실제 포함된 파일을 확인한 뒤 의존성 목록을 갱신한다.
 - 빌드 없는 초기 앱에는 공식 브라우저 배포 형식을 사용한다. idb는 ESM·UMD를 제공하고 Papa Parse의 배포본은 UMD이다. 첫 연결은 로컬 UMD 스크립트로 로드하고, `globalThis.idb/Papa/Chart` 접근은 각 어댑터에 한정한다. UMD 파일을 native ESM의 default export로 가정하지 않는다. [I1], [P3]
 - 이후 ESM 배포를 선택하면 해당 파일이 참조하는 모듈까지 함께 고정한다. 배포 시 가변 `latest` 주소에 의존하지 않는다.
+- 공식 USB 라이브러리는 USB·Universal HEX 진입점만 ESM으로 번들한다. 모바일·Bluetooth 패키지를 추가하지 않는다. `dev/usb-library/`의 고정 lockfile·빌드 스크립트로 재현하며 앱 실행에는 빌드가 필요 없다. 번들·포함 라이선스·출처·해시는 vendor에 보관한다. 전송 엔진과 HEX 해석을 자체 재구현하지 않는다.
 - 기존 3D 번들 안의 엔진은 해당 뷰어가 소유한다. 부모 앱에서 별도 3D 엔진을 추가하거나 모델을 복제하는 작업은 현재 경로에 필요하지 않다.
 - M1에서 저장 어댑터·기존 차트 연결을, M2에서 CSV 어댑터를 구현한다. M3에서 실제 표 조작 범위를 확인하며 표 도구 추가 여부를 판단한다.
 
@@ -146,6 +150,7 @@ RunStore의 `appendEvent()`가 측정 중 사건과 정정 사건 모두에 실�
 - [C4] [Chart.js API](https://www.chartjs.org/docs/latest/developers/api.html).
 - [I1] [idb 공식 README](https://github.com/jakearchibald/idb).
 - [I2] [idb package.json](https://github.com/jakearchibald/idb/blob/main/package.json).
+- [U1] [Micro:bit Foundation connection library](https://microbit-foundation.github.io/microbit-connection/).
 - [P1] [Papa Parse 공식 문서](https://www.papaparse.com/docs).
 - [P2] [Papa Parse 릴리스](https://github.com/mholt/PapaParse/releases/tag/5.7.0).
 - [P3] [Papa Parse 5.7.0 소스·배포 형태](https://github.com/mholt/PapaParse/blob/5.7.0/papaparse.js).
@@ -161,6 +166,7 @@ RunStore의 `appendEvent()`가 측정 중 사건과 정정 사건 모두에 실�
 [C4]: https://www.chartjs.org/docs/latest/developers/api.html
 [I1]: https://github.com/jakearchibald/idb
 [I2]: https://github.com/jakearchibald/idb/blob/main/package.json
+[U1]: https://microbit-foundation.github.io/microbit-connection/
 [P1]: https://www.papaparse.com/docs
 [P2]: https://github.com/mholt/PapaParse/releases/tag/5.7.0
 [P3]: https://github.com/mholt/PapaParse/blob/5.7.0/papaparse.js

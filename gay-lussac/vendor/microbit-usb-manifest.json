@@ -1,0 +1,30 @@
+{
+  "packages": [
+    {
+      "name": "@microbit/microbit-connection",
+      "version": "1.0.0",
+      "source": "https://registry.npmjs.org/@microbit/microbit-connection/-/microbit-connection-1.0.0.tgz",
+      "integrity": "sha512-aT0yh1skRUhsb5xaIsHx5dHrvZdFytqeo1Y1Rwn2fBQm+qpo1vDpaQ8fI4v1LiedJUm5gNCExpxD1EVyhdtXvg=="
+    },
+    {
+      "name": "@microbit/microbit-universal-hex",
+      "version": "0.2.2",
+      "source": "https://registry.npmjs.org/@microbit/microbit-universal-hex/-/microbit-universal-hex-0.2.2.tgz",
+      "integrity": "sha512-qyFt8ATgxAyPkNz9Yado4HXEeCctwP/8L1/v2hFLeVUqw/HFqVqV4piJbqRMmyOefMcQ9OyVPhLXjtbKn9063Q=="
+    },
+    {
+      "name": "nrf-intel-hex",
+      "version": "1.4.0",
+      "source": "https://registry.npmjs.org/nrf-intel-hex/-/nrf-intel-hex-1.4.0.tgz",
+      "integrity": "sha512-q3+GGRIpe0VvCjUP1zaqW5rk6IpCZzhD0lu7Sguo1bgWwFcA9kZRjsaKUb0jBQMnefyOl5o0BBGAxvqMqYx8Sg=="
+    }
+  ],
+  "build": {
+    "tool": "esbuild",
+    "version": "0.25.12"
+  },
+  "files": {
+    "microbit-usb-1.0.0.js": "04971f020a074892ba6fee6438683ef811270b29ae9f79a6389781cd4381726c",
+    "microbit-usb-LICENSES.md": "c98dddedcbda9549e68bd597de1f771651e96ebef334260248ea01e8b6676721"
+  }
+}
