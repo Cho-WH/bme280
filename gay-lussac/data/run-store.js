@@ -1,3 +1,5 @@
+import { withEventNote } from './contracts.js';
+
 // One owner for both confirmed data and pending changes. UI caches never become records.
 export async function openRunStore({ repository, id = crypto.randomUUID(), program, source = 'device',
   name, create = false, locks = globalThis.navigator?.locks, timers = globalThis,
@@ -16,10 +18,10 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
   try {
     if (create) {
       if (!writable) throw new Error('기록을 시작하려면 작성 잠금을 지원하는 Chrome·Edge에서 열어 주세요.');
-      initial = { run: { id, schemaVersion: 1, runRevision: 1,
+      initial = { run: { id, schemaVersion: 2, runRevision: 1,
         name: name || `기체 실험 · ${new Date(now()).toLocaleString('ko-KR')}`, createdAt: now(), updatedAt: now(),
         status: 'open', program: structuredClone(program), profile: structuredClone(program.profile), source,
-        segments: [], lastSavedSampleId: 0, lastSavedEventId: 0 }, samples: [], events: [], workspace: null };
+        lastSavedSampleId: 0, lastSavedEventId: 0 }, samples: [], events: [], workspace: null };
     } else {
       initial = await repository.readSnapshot(id);
       if (!initial) throw new Error('이 브라우저에 해당 실험이 없습니다.');
@@ -27,6 +29,7 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
   } catch (error) { releaseLock(); throw error; }
 
   let run = structuredClone(initial.run);
+  delete run.segments; // Obsolete metadata is ignored when opening older records.
   let samples = structuredClone(initial.samples);
   let events = structuredClone(initial.events);
   let workspace = structuredClone(initial.workspace);
@@ -34,6 +37,8 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
     runRevision: create ? 0 : run.runRevision, workspaceRevision: workspace?.workspaceRevision ?? 0 };
   let lastSampleId = samples.at(-1)?.sampleId ?? 0;
   let lastEventId = events.at(-1)?.eventId ?? 0;
+  const editedEvents = new Map();
+  let eventsVersion = 0;
   let timer = null, saving = null, error = null, closed = false, retryBatch = null;
   const dirty = () => lastSampleId > saved.sampleId || lastEventId > saved.eventId
     || run.runRevision > saved.runRevision || (workspace?.workspaceRevision ?? 0) > saved.workspaceRevision;
@@ -41,8 +46,9 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
   function getState() {
     return { id, name: run.name, source: run.source, writable: writable && !closed, runStatus: run.status,
       status: saving ? 'saving' : error ? 'error' : dirty() ? 'pending' : 'clean',
-      error: error?.message ?? '', sampleCount: samples.length, eventCount: events.length,
-      pendingSamples: lastSampleId - saved.sampleId, pendingEvents: lastEventId - saved.eventId,
+      error: error?.message ?? '', sampleCount: samples.length, eventCount: events.length, eventsVersion,
+      pendingSamples: lastSampleId - saved.sampleId,
+      pendingEvents: lastEventId - saved.eventId + [...editedEvents.keys()].filter(eventId => eventId <= saved.eventId).length,
       lastSampleId, lastEventId, savedSampleId: saved.sampleId, runRevision: run.runRevision };
   }
   const emit = () => onChange(getState());
@@ -55,7 +61,7 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
   function updateRun(patch) {
     assertWriter();
     for (const key of Object.keys(patch)) {
-      if (!['name', 'status', 'segments'].includes(key)) throw new Error(`수정할 수 없는 실험 항목: ${key}`);
+      if (!['name', 'status'].includes(key)) throw new Error(`수정할 수 없는 실험 항목: ${key}`);
     }
     run = { ...run, ...structuredClone(patch) }; changed();
   }
@@ -67,7 +73,16 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
   function appendEvent(event) {
     assertWriter();
     const record = { ...structuredClone(event), runId: id, eventId: ++lastEventId };
-    events.push(record); changed(); return record.eventId;
+    events.push(record); eventsVersion++; changed(); return record.eventId;
+  }
+  function updateEventNote(eventId, note) {
+    assertWriter();
+    const index = events.findIndex(event => event.eventId === eventId);
+    const next = withEventNote(events[index], note);
+    if ((events[index].payload.note ?? '') === next.payload.note) return;
+    events[index] = next;
+    editedEvents.set(eventId, run.runRevision + 1);
+    eventsVersion++; changed();
   }
   function saveWorkspace(next) {
     assertWriter();
@@ -77,13 +92,14 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
   async function saveBatch() {
     const batch = retryBatch ?? { run: { ...structuredClone(run), lastSavedSampleId: lastSampleId, lastSavedEventId: lastEventId },
       samples: structuredClone(samples.filter((s) => s.sampleId > saved.sampleId)),
-      events: structuredClone(events.filter((e) => e.eventId > saved.eventId)),
+      events: structuredClone(events.filter((e) => e.eventId > saved.eventId || editedEvents.has(e.eventId))),
       workspace: (workspace?.workspaceRevision ?? 0) > saved.workspaceRevision ? structuredClone(workspace) : null,
       baseRunRevision: saved.runRevision };
     retryBatch = batch;
     try {
       const ack = await repository.commitBatch(batch);
       saved = { ...ack, workspaceRevision: ack.workspaceRevision ?? saved.workspaceRevision };
+      for (const [eventId, revision] of editedEvents) if (revision <= saved.runRevision) editedEvents.delete(eventId);
       run.lastSavedSampleId = saved.sampleId; run.lastSavedEventId = saved.eventId;
       error = null; retryBatch = null;
     } catch (failure) { error = failure; throw failure; }
@@ -115,5 +131,5 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
   return { getState, getSnapshot, getRun: () => structuredClone(run),
     getEvents: (limit = 15) => structuredClone(events.slice(-limit)),
     getSamples: () => structuredClone(samples),
-    updateRun, appendSample, appendEvent, saveWorkspace, flush, close, dispose };
+    updateRun, appendSample, appendEvent, updateEventNote, saveWorkspace, flush, close, dispose };
 }

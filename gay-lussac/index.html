@@ -8,6 +8,7 @@
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./ui/guide.css">
+  <link rel="stylesheet" href="./ui/analysis.css">
   <script defer src="../vendor/chart.umd.js"></script>
   <script defer src="./vendor/idb-8.0.4.umd.js"></script>
   <script defer src="./vendor/papaparse-5.7.0.min.js"></script>
@@ -34,8 +35,23 @@
   <main id="main" tabindex="-1">
     <section id="run-tools" class="run-tools" hidden aria-label="현재 실험">
       <div><strong id="run-name"></strong> <span id="run-phase" class="run-phase"></span><p id="run-summary" class="muted"></p></div>
-      <div class="button-row"><button id="additional-measurement" hidden>추가 측정</button><button id="export-csv" disabled>전체 CSV</button><button id="new-run">새 실험</button></div>
+      <div class="button-row"><button id="download-menu-button" class="primary" popovertarget="download-menu" disabled>다운로드</button><button id="additional-measurement" hidden>추가 측정</button><button id="new-run">새 실험</button></div>
     </section>
+    <div id="download-menu" class="download-menu" popover aria-label="다운로드 형식">
+      <button id="export-csv">전체 원자료 CSV</button>
+      <button id="export-analysis-csv">분석 자료 CSV…</button>
+      <button id="export-png">그래프 PNG</button>
+      <button id="export-json">전체 실험 JSON</button>
+    </div>
+    <dialog id="analysis-export-dialog" class="file-dialog" aria-labelledby="analysis-export-title">
+      <form id="analysis-export-form">
+        <h2 id="analysis-export-title">분석 자료 CSV</h2>
+        <p id="analysis-export-count" class="muted"></p>
+        <fieldset><legend>포함할 계산 열</legend><div id="analysis-export-columns"></div></fieldset>
+        <p class="muted">원자료 열은 항상 포함됩니다. 계산할 수 없는 값은 빈칸과 사유로 기록합니다.</p>
+        <div class="button-row"><button type="button" id="cancel-analysis-export">취소</button><button class="primary" type="submit">다운로드</button></div>
+      </form>
+    </dialog>
     <p id="run-message" class="inline-message" role="status"></p>
     <p id="paused-notice" class="notice" role="status" hidden>기록 일시정지 중 · 현재 값만 표시하며 새 값은 저장되지 않습니다. 측정하기 화면에서 기록을 재개할 수 있어요.</p>
     <section id="storage-problem" class="notice" role="status" hidden><p id="storage-detail"></p><div class="button-row"><button id="retry-save">다시 저장</button><button id="temporary-analysis" hidden>임시 자료로 분석</button></div></section>
@@ -57,7 +73,7 @@
         <figure class="hero-figure"><div class="figure-tag">우리의 실험 장치</div><img src="./assets/setup.svg" alt="유리 밀폐 용기 안의 마이크로비트·배터리·BMP280 센서와 바깥의 물·고정대. 센서는 벽에 닿지 않고 최대한 용기 중앙에 떠 있도록 하세요."></figure>
       </div>
       <div class="journey" aria-label="실험 흐름"><div><span>01</span><h2>장치를 준비해요</h2><p>배선부터 무선 수신까지 한 단계씩</p></div><div><span>02</span><h2>변화를 관찰해요</h2><p>온도와 압력을 같은 시간에 비교</p></div><div><span>03</span><h2>자료로 탐구해요</h2><p>원하는 자료를 골라 관계 찾기</p></div></div>
-      <section class="saved-section" aria-labelledby="saved-heading"><div><p class="eyebrow">이어서 탐구하기</p><h2 id="saved-heading">저장된 실험</h2></div><button id="open-saved">저장된 실험 열기</button><p id="saved-status" class="muted">저장소를 확인하고 있어요.</p><ul id="saved-runs"></ul></section>
+      <section class="saved-section" aria-labelledby="saved-heading"><div><p class="eyebrow">이어서 탐구하기</p><h2 id="saved-heading">저장된 실험</h2></div><div class="button-row"><button id="open-saved">저장된 실험 열기</button><button id="import-file">실험 파일 열기 (CSV·JSON)</button></div><input id="import-file-input" type="file" accept=".csv,text/csv,.json,application/json" hidden><p id="import-file-message" class="inline-message" role="status" hidden></p><p id="saved-status" class="muted">저장소를 확인하고 있어요.</p><ul id="saved-runs"></ul></section>
     </section>
 
     <section data-screen="prepare" hidden>
@@ -101,31 +117,96 @@
       <div class="section-heading"><div><p class="eyebrow">02 / 측정하기</p><h1 tabindex="-1">온도와 압력이 보내는 신호</h1></div><a href="#/prepare">장치 준비 다시 보기 ↗</a></div>
       <p id="measurement-guidance" class="notice">새 측정값을 기다려요. 준비 구간부터 자동으로 기록합니다.</p>
       <div class="reading-grid"><article class="reading-card temperature"><p>센서 온도</p><div><strong data-temperature>—</strong><span>℃</span></div><small>센서가 있는 곳의 온도</small></article><article class="reading-card pressure"><p>용기 안 압력</p><div><strong data-pressure>—</strong><span>hPa</span></div><small>센서에서 받은 절대압</small></article><article class="reception-card"><p class="eyebrow">수신 상태</p><h2 id="live-state">새 값을 기다려요</h2><p id="last-received">아직 받은 값이 없습니다.</p><p id="reading-problem" class="inline-message"></p></article></div>
-      <section class="chart-panel" aria-labelledby="chart-heading"><div class="chart-heading"><h2 id="chart-heading">시간에 대한 온도와 압력</h2><label>표시 구간 <select id="chart-range"><option value="recent">최근 60초</option><option value="all">전체 기록</option></select></label></div><div class="chart-wrap"><canvas id="live-chart" role="img" aria-label="온도와 압력의 시간 변화. 구간 사이의 선은 연결하지 않습니다."></canvas><p id="chart-empty">장치를 연결하면 여기에 새 값이 표시돼요.</p></div><p id="chart-error" class="inline-message" hidden></p></section>
-      <div class="measurement-actions"><button id="confirm-placement">용기를 배치했어요</button><button id="heating-start" disabled>가열 시작</button><button id="water-added" disabled>물 추가</button><button id="device-change" disabled>장치 변화</button><button id="pause-recording" disabled>기록 일시정지</button><button id="finish-run" class="primary" disabled>측정 마치기</button><span id="recording-summary"></span></div>
+      <section class="chart-panel" aria-labelledby="chart-heading"><div class="chart-heading"><h2 id="chart-heading">시간에 대한 온도와 압력</h2><label>표시 구간 <select id="chart-range"><option value="recent">최근 60초</option><option value="all">전체 기록</option></select></label></div><div class="chart-wrap"><canvas id="live-chart" role="img" aria-label="온도와 압력의 시간 변화. 수신 공백 사이의 선은 연결하지 않습니다."></canvas><p id="chart-empty">장치를 연결하면 여기에 새 값이 표시돼요.</p></div><p id="chart-error" class="inline-message" hidden></p></section>
+      <div class="measurement-actions"><button id="confirm-placement">용기를 배치했어요</button><button id="heating-start" disabled>가열 시작</button><button id="water-added" disabled>물 추가</button><button id="device-change" disabled>장치 변화</button><button id="pause-recording" disabled>기록 일시정지</button><button id="finish-run" class="primary" disabled>측정 마치기</button></div>
       <form id="device-form" class="device-form" hidden><label>변화 <select id="device-kind"><option value="moved">장치 이동</option><option value="opened">뚜껑 열림</option><option value="sealed">다시 밀폐</option></select></label><label>메모 <input id="device-note" maxlength="200" placeholder="선택 사항"></label><button type="submit">기록하기</button><button type="button" id="cancel-device">취소</button></form>
       <details class="event-log"><summary>조작·수신 기록</summary><ol id="measure-events"></ol></details>
     </section>
 
-    <section data-screen="analysis" hidden>
-      <div class="section-heading"><div><p class="eyebrow">03 / 자료 분석</p><h1 tabindex="-1">자료 속에서 관계를 찾아요</h1></div><details class="analysis-hint"><summary>분석 도움말</summary><p>분석할 자료를 고르고 X축과 Y축을 정해 보세요. 계산 열과 직선 맞추기는 원하는 순서로 사용할 수 있어요.</p></details></div>
-      <p class="notice">원자료를 확인하거나 전체 CSV로 내보낼 수 있어요. 자료 선택·계산·회귀 도구는 다음 단계에서 제공됩니다.</p><p id="analysis-message" role="status"></p>
+    <section data-screen="analysis" class="analysis-screen" hidden>
+      <div class="section-heading"><div><p class="eyebrow">03 / 자료 분석</p><h1 tabindex="-1">자료 분석</h1></div><div class="analysis-views" role="group" aria-label="자료 분석 보기"><button type="button" data-analysis-view="table" aria-pressed="true">표</button><button type="button" data-analysis-view="split" aria-pressed="false">표·그래프</button><button type="button" data-analysis-view="graph" aria-pressed="false">그래프</button></div></div>
+      <div class="analysis-data-status"><p id="analysis-message" role="status"></p><button id="apply-new-data" data-workspace-action disabled>새 자료 보기 (0개)</button></div>
       <button id="finish-for-analysis" class="primary" hidden>측정을 마치고 분석</button>
-      <button id="apply-new-data" hidden>새 자료 적용</button>
-      <div class="analysis-toolbar"><button disabled>자료 선택</button><button disabled>계산 열</button><button disabled>그래프 만들기</button><button disabled>직선 맞추기</button></div>
-      <div class="analysis-tabs" role="group" aria-label="분석 영역"><button data-analysis-pane="table" aria-pressed="true">표</button><button data-analysis-pane="graph" aria-pressed="false">그래프</button></div>
-      <div class="analysis-grid" data-active-pane="table"><section class="table-panel" data-pane="table"><h2>측정 자료</h2><div id="raw-scroll" class="table-scroll" tabindex="0" role="region" aria-label="측정 원자료 연속 스크롤" aria-describedby="table-status"><table class="raw-table"><colgroup><col style="width:10%"><col style="width:9%"><col style="width:23%"><col style="width:17%"><col style="width:18%"><col style="width:23%"></colgroup><thead><tr><th>ID</th><th>구간</th><th>수신 시각</th><th>온도 (℃)</th><th>압력 (hPa)</th><th>값 확인</th></tr></thead><tbody id="raw-rows"></tbody></table></div><p id="table-status" class="table-status"></p></section><section class="graph-panel" data-pane="graph"><h2>나의 그래프</h2><div class="graph-placeholder"><span aria-hidden="true">↗</span><p>자료와 축을 골라<br>두 값의 관계를 살펴보세요.</p></div></section></div>
+      <section class="table-panel analysis-table">
+        <div class="analysis-panel-heading">
+          <h2>측정 자료</h2>
+          <div class="analysis-scope">
+            <span id="scope-count">분석에 사용할 자료 0개</span><span id="scope-detail"></span>
+            <span id="designated-analysis" hidden>지정 분석 <span id="designated-count"></span><button id="apply-all" aria-label="지정 분석 해제" data-workspace-action>해제</button></span>
+          </div>
+        </div>
+        <div class="table-selection">
+          <div class="history-actions"><button id="undo-analysis" aria-label="되돌리기" title="되돌리기" data-workspace-action disabled><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="./vendor/lucide-history.svg#undo-2"></use></svg></button><button id="redo-analysis" aria-label="다시 실행" title="다시 실행" data-workspace-action disabled><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="./vendor/lucide-history.svg#redo-2"></use></svg></button></div>
+          <form id="range-check" class="range-check">
+            <span>범위 체크:</span><input id="range-start" type="number" min="1" step="1" aria-label="범위 시작 자료 ID" data-workspace-action><span>~</span><input id="range-end" type="number" min="1" step="1" aria-label="범위 끝 자료 ID" data-workspace-action><button type="submit" data-workspace-action>확인</button>
+          </form>
+          <div class="status-actions" role="group" aria-label="체크한 자료의 분석 상태"><button id="restore-selection" data-workspace-action disabled>사용</button><button id="exclude-selection" data-workspace-action disabled>제외</button></div>
+          <button id="apply-selection" data-workspace-action disabled>선택한 자료만 분석</button><span id="selection-count">체크 0개</span>
+        </div>
+        <div class="analysis-feedback" role="alert"><p id="analysis-feedback" tabindex="-1"></p></div>
+        <div id="column-filter-panel" class="column-filter-panel" popover="auto" role="dialog" aria-label="열 필터"></div>
+        <div id="calculation-menu" class="column-filter-panel calculation-menu" popover="auto" role="dialog" aria-label="계산 열"></div>
+        <div id="analysis-layout" class="analysis-layout" data-view="table">
+          <div id="analysis-table-pane" class="analysis-table-pane">
+          <button id="hidden-column-filters" class="hidden-column-filters" type="button" hidden></button>
+          <div id="raw-scroll" class="table-scroll" tabindex="0" role="region" aria-label="측정 원자료 연속 스크롤" aria-describedby="table-status">
+            <table class="raw-table"><colgroup><col style="width:32px"><col style="width:60px"><col style="width:92px"><col style="width:100px"><col style="width:102px"><col style="width:106px"><col></colgroup><thead><tr><th scope="col"><input id="select-all" type="checkbox" aria-label="표시된 자료 전체 선택" data-workspace-action></th><th scope="col" class="add-column-header"><button id="add-calculation" aria-expanded="false" aria-controls="calculation-menu" data-workspace-action>+ 계산 열</button></th></tr></thead><tbody id="raw-rows"></tbody></table>
+          </div>
+          </div>
+          <section id="analysis-graph-pane" class="analysis-graph-pane" aria-label="분석 그래프" hidden>
+            <form id="graph-form" class="graph-controls">
+              <label>X축<select id="graph-x" aria-label="그래프 X축" data-workspace-action></select></label>
+              <label>Y축<select id="graph-y" aria-label="그래프 Y축" data-workspace-action></select></label>
+              <label>표시<select id="graph-type" aria-label="그래프 표시 방식" data-workspace-action><option value="scatter">산점도</option><option value="line">시간 변화선</option></select></label>
+              <button id="graph-apply" type="submit" data-workspace-action>그래프 만들기</button>
+              <label id="graph-gap-control" class="graph-gap-control" hidden><input id="graph-gaps" type="checkbox" data-workspace-action>시간 공백 연결</label>
+            </form>
+            <div class="trend-controls">
+              <label class="trend-toggle" title="현재 분석에 사용하는 자료로 계산한 선형 회귀선을 표시합니다."><input id="trend-enabled" type="checkbox" data-workspace-action>추세선 표시</label>
+              <div id="trend-views" class="trend-views" role="group" aria-label="그래프 범위" hidden>
+                <button type="button" data-graph-view="measured" aria-pressed="true" data-workspace-action>측정 범위</button>
+                <button type="button" data-graph-view="extended" aria-pressed="false" data-workspace-action>직선 연장</button>
+              </div>
+            </div>
+            <div class="graph-summary"><span id="graph-count"></span><span id="graph-legend" hidden><span class="graph-used">● 사용</span> <span class="graph-excluded">× 제외</span> <span class="graph-checked">● 체크</span></span></div>
+            <div class="graph-stage"><div id="graph-plot" class="graph-plot" hidden><canvas id="analysis-chart" role="img" aria-label="분석 그래프"></canvas></div><p id="graph-empty" class="graph-empty">X축과 Y축을 선택하고 그래프를 만드세요.</p></div>
+            <div class="trend-result" aria-live="polite" aria-atomic="true"><div id="trend-equation"></div><div id="trend-detail"></div></div>
+          </section>
+        </div>
+        <div class="table-footer"><label for="exclusion-reason">제외 사유 (선택)</label><input id="exclusion-reason" maxlength="200" data-workspace-action><p id="table-status" class="table-status"></p></div>
+      </section>
+      <dialog id="calculation-dialog" class="calculation-dialog" aria-labelledby="calculation-title">
+        <form novalidate>
+          <h2 id="calculation-title">계산 열 추가</h2>
+          <div class="calculation-names"><label>열 이름<input name="columnName" maxlength="60" required></label><label>단위 (선택)<input name="unit" maxlength="30"></label></div>
+          <div class="calculation-operand" data-operand="lhs"><span>A</span><select data-kind aria-label="A 입력 종류"><option value="column">자료 열</option><option value="constant">숫자</option></select><select data-column aria-label="A 자료 열"></select><input data-value type="number" step="any" aria-label="A 숫자" hidden></div>
+          <label class="calculation-operation">연산<select name="op" aria-label="계산 연산"><option value="+">＋</option><option value="-">−</option><option value="*">×</option><option value="/">÷</option><option value="^">거듭제곱 (Aᴮ)</option></select></label>
+          <div class="calculation-operand" data-operand="rhs"><span>B</span><select data-kind aria-label="B 입력 종류"><option value="column">자료 열</option><option value="constant">숫자</option></select><select data-column aria-label="B 자료 열"></select><input data-value type="number" step="any" aria-label="B 숫자" hidden></div>
+          <div class="calculation-preview"><p data-expression></p><table aria-label="계산 결과 미리보기"><thead><tr><th>ID</th><th>미리보기</th></tr></thead><tbody data-preview></tbody></table><p data-empty hidden>미리 볼 분석 자료가 없습니다.</p></div>
+          <p data-error class="calculation-editor-error" role="status"></p>
+          <div class="calculation-actions"><button type="button" data-cancel>취소</button><button type="submit" class="primary">열 추가</button></div>
+        </form>
+      </dialog>
       <details class="event-log"><summary>조작·수신 기록</summary><ol id="analysis-events"></ol></details>
     </section>
   </main>
+  <dialog id="event-note-dialog" class="file-dialog" aria-labelledby="event-note-title">
+    <form>
+      <h2 id="event-note-title">조작 기록 메모</h2>
+      <p data-event-title class="muted"></p>
+      <label class="condition-note">메모 <textarea name="note" maxlength="500" rows="3" placeholder="관찰한 내용을 적어 주세요. 비워 두어도 됩니다."></textarea></label>
+      <p data-error class="inline-message" role="alert"></p>
+      <div class="button-row"><button type="button" data-cancel>취소</button><button type="submit" class="primary">저장</button></div>
+    </form>
+  </dialog>
   <dialog id="additional-dialog" class="additional-dialog" aria-labelledby="additional-title" aria-describedby="additional-description">
     <form>
       <h2 id="additional-title">추가 측정 전 조건 확인</h2>
-      <p id="additional-description">이전 측정과 비교해 확인해 주세요. 기존 자료를 보존하고 같은 실험의 새 구간에 기록합니다.</p>
+      <p id="additional-description">이전 측정과 비교해 확인해 주세요. 기존 자료를 보존하고 같은 실험에 이어 기록합니다.</p>
       <div data-conditions class="condition-fields"></div>
       <p data-changed class="notice" hidden>조건이 달라졌다면 새 실험으로 나누는 것을 권해요. 같은 실험에서 비교하려면 달라졌거나 확실하지 않은 점을 메모해 주세요.</p>
       <label class="condition-note">조건 메모 <textarea name="note" maxlength="500" rows="3" placeholder="변경 없음이면 선택 사항"></textarea></label>
-      <p class="muted">추가 자료는 기존 분석에 자동으로 포함되지 않아요. 추가 측정 후 용기 배치와 새 값 수신을 다시 확인합니다.</p>
+      <p class="muted">추가 자료는 분석 화면의 새 자료 보기로 불러옵니다. 지정 분석 중에는 지정한 자료만 분석합니다. 추가 측정 후 용기 배치와 새 값 수신을 다시 확인합니다.</p>
       <p data-error class="inline-message" role="alert"></p>
       <div class="button-row"><button type="button" data-cancel>취소</button><button type="submit" class="primary" disabled>확인하고 추가 측정</button></div>
     </form>

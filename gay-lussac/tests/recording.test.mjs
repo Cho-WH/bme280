@@ -5,7 +5,8 @@ import { openRunStore } from '../data/run-store.js';
 import { createSession } from '../measurement/session.js';
 import { PROGRAM } from '../program-config.js';
 import { decode } from '../measurement/decoder.js';
-import { buildCsv } from '../data/files.js';
+import { buildCsv, buildExperimentJson, parseExperimentJson } from '../data/files.js';
+import { createWorkspace } from '../analysis/workspace.js';
 
 const require = createRequire(import.meta.url);
 globalThis.Papa = require('../vendor/papaparse-5.7.0.min.js');
@@ -49,6 +50,90 @@ async function fixture(extra = {}) {
     accept(value, overrides) { ms = value; session.acceptInput(reading(value, overrides)); } };
 }
 
+test('Workspace persists through RunStore and reopens the same scope while later measurements remain new', async () => {
+  const f = await fixture();
+  [0, 500, 1000].forEach(ms => f.accept(ms));
+  const workspace = createWorkspace({ store: f.store });
+  workspace.setSelection([1, 2]); workspace.applyScope('selection'); workspace.exclude([2], '이동');
+  f.accept(1500);
+  await f.store.close();
+  const restored = await openRunStore({ repository: f.repo, id: 'test', locks: locks(), timers });
+  const reopened = createWorkspace({ store: restored });
+  assert.deepEqual(reopened.getState(), workspace.getState());
+  assert.equal(restored.getState().sampleCount, 4);
+  assert.equal(reopened.getLoadedCount(), 3);
+  assert.equal(reopened.getSummary().includedCount, 1);
+  reopened.showNewData();
+  assert.equal(reopened.getLoadedCount(), 4);
+  assert.equal(reopened.getSummary().candidateCount, 2);
+  await restored.close();
+});
+
+test('user notes can be edited after finishing without changing events, raw data or analysis', async () => {
+  const sharedLocks = locks(), f = await fixture({ locks: sharedLocks });
+  [0, 500, 1000].forEach(ms => f.accept(ms));
+  f.session.markEvent('device-change', { kind: 'moved', note: '처음 메모' });
+  createWorkspace({ store: f.store }).exclude([2], '이동');
+  await f.session.finish();
+  const before = f.store.getSnapshot(), event = before.events.find(e => e.type === 'device-change');
+  const reader = await openRunStore({ repository: f.repo, id: 'test', locks: sharedLocks, timers });
+  assert.throws(() => reader.updateEventNote(event.eventId, '변경'), /읽기 전용/);
+  assert.throws(() => f.store.updateEventNote(999, '변경'), /사용자 조작/);
+  assert.throws(() => f.store.updateEventNote(before.events.find(e => e.source === 'system').eventId, '변경'), /사용자 조작/);
+  assert.throws(() => f.store.updateEventNote(event.eventId, 'x'.repeat(501)), /500자/);
+  assert.deepEqual(f.store.getSnapshot(), before);
+  f.store.updateEventNote(event.eventId, '  센서 위치를 옮김\n다시 고정함  ');
+  const changed = f.store.getSnapshot();
+  assert.equal(f.store.getState().pendingEvents, 1);
+  assert.equal(changed.events.length, before.events.length);
+  assert.deepEqual(changed.events.find(e => e.eventId === event.eventId),
+    { ...event, payload: { ...event.payload, note: '센서 위치를 옮김\n다시 고정함' } });
+  assert.deepEqual(changed.samples, before.samples);
+  assert.deepEqual(changed.workspace, before.workspace);
+  assert.equal(f.session.getState().state, 'ended');
+  assert.equal(before.events.find(e => e.eventId === event.eventId).payload.note, '처음 메모');
+  assert.deepEqual(parseExperimentJson(buildExperimentJson(changed)).events, changed.events);
+  reader.dispose(); await f.store.close();
+  const reopened = await openRunStore({ repository: f.repo, id: 'test', locks: sharedLocks, timers });
+  assert.deepEqual(reopened.getSnapshot().events, changed.events);
+  reopened.updateEventNote(event.eventId, ''); await reopened.flush();
+  assert.equal((await f.repo.readSnapshot('test')).events.find(e => e.eventId === event.eventId).payload.note, '');
+  const revision = reopened.getState().runRevision;
+  reopened.updateEventNote(event.eventId, ' ');
+  assert.equal(reopened.getState().runRevision, revision);
+  await reopened.close();
+});
+
+for (const committed of [false, true]) test(`note edits during a failed save preserve latest values (committed=${committed})`, async () => {
+  const f = await fixture(); f.accept(0);
+  f.session.markEvent('water-added');
+  if (!committed) await f.store.flush(); // Cover both an existing event and an uncertain first write.
+  const event = f.store.getEvents().find(e => e.type === 'water-added');
+  const commit = f.repo.commitBatch, attempts = [];
+  let rejectSave;
+  f.repo.commitBatch = batch => {
+    attempts.push(copy(batch));
+    return new Promise((resolve, reject) => { rejectSave = async () => {
+      if (committed) await commit(batch);
+      reject(new Error('save failed'));
+    }; });
+  };
+  f.store.updateEventNote(event.eventId, '첫 수정');
+  const pending = f.store.flush();
+  f.store.updateEventNote(event.eventId, '최신 수정');
+  f.accept(500); f.session.markEvent('device-change', { kind: 'moved' });
+  await rejectSave(); await assert.rejects(pending, /save failed/);
+  assert.equal(f.store.getState().status, 'error');
+  assert.equal(f.store.getState().pendingEvents, 2);
+  f.repo.commitBatch = async batch => { attempts.push(copy(batch)); return commit(batch); };
+  await f.store.flush();
+  assert.deepEqual(attempts[1], attempts[0]);
+  assert.equal(attempts[2].events.find(e => e.eventId === event.eventId).payload.note, '최신 수정');
+  assert.equal((await f.repo.readSnapshot('test')).events.find(e => e.eventId === event.eventId).payload.note, '최신 수정');
+  assert.equal(f.store.getState().pendingEvents, 0);
+  assert.equal(f.store.getState().status, 'clean'); await f.store.close();
+});
+
 test('in-flight saving acknowledges only captured IDs and revisions; snapshots remain stable', async () => {
   const repo = repository(), commit = repo.commitBatch;
   let release, captured;
@@ -90,7 +175,7 @@ test('failed and uncertain writes retain the exact batch for retry before later 
   assert.equal((await repo.readSnapshot('test')).samples.length, 2); f.store.dispose();
 });
 
-test('raw invalid values, gaps, attempts and clock changes preserve IDs and break segments', async () => {
+test('raw invalid values, gaps, attempts and clock changes preserve raw times and IDs without segment records', async () => {
   const f = await fixture();
   f.accept(0, { temperatureC: -100, validity: { temperatureC: 'out-of-range', pressureHpa: 'valid' } });
   [500, 1000, 1500].forEach(ms => f.accept(ms));
@@ -100,9 +185,10 @@ test('raw invalid values, gaps, attempts and clock changes preserve IDs and brea
   f.accept(7800, { attemptId: 2, receivedAt: utc - 20000 });
   const snapshot = f.store.getSnapshot();
   assert.deepEqual(snapshot.samples.map(s => s.sampleId), [1,2,3,4,5,6,7,8,9]);
-  assert.equal(snapshot.samples[0].segmentId, null);
+  assert.ok(snapshot.samples.every(s => !('segmentId' in s) && !('segmentElapsedMs' in s)));
   assert.equal(snapshot.samples[0].temperatureC, -100);
-  assert.equal(snapshot.run.segments.length, 4);
+  assert.equal('segments' in snapshot.run, false);
+  assert.ok(snapshot.events.every(e => !e.type.startsWith('segment-') && !('segmentId' in e)));
   assert.equal(snapshot.events.filter(e => e.type === 'reception-change' && e.payload.state === 'stale').length, 2);
   assert.ok(snapshot.events.some(e => e.type === 'discontinuity' && e.payload.reason === 'clock-change'));
   f.store.dispose();
@@ -141,11 +227,12 @@ test('finish failure allows temporary analysis and CSV without reopening measure
   const parsed = globalThis.Papa.parse(csv, { header: true });
   assert.equal(parsed.errors.length, 0);
   assert.equal(parsed.data.length, 2);
-  assert.equal(parsed.data[1].segment_elapsed_ms, '500');
+  assert.equal(parsed.data[1].timestamp, new Date(utc + 500).toISOString());
+  assert.deepEqual(parsed.meta.fields, ['sample_id', 'timestamp', 'temperature_c', 'pressure_hpa', 'temperature_validity', 'pressure_validity']);
   assert.equal(parsed.data[1].pressure_hpa, '1000'); f.store.dispose();
 });
 
-test('one writer survives screen-independent use; reopen resumes with next IDs and a new segment', async () => {
+test('one writer survives screen-independent use; reopen resumes with next IDs and preserved timestamps', async () => {
   const sharedLocks = locks(), f = await fixture({ locks: sharedLocks }); f.accept(0); await f.store.flush();
   const second = await openRunStore({ repository: f.repo, id: 'test', locks: sharedLocks, timers });
   assert.equal(second.getState().writable, false);
@@ -157,8 +244,7 @@ test('one writer survives screen-independent use; reopen resumes with next IDs a
   const next = createSession({ store: reopened, clock: f.clock });
   next.acceptInput(reading(2000)); await reopened.flush();
   assert.equal(reopened.getSnapshot().samples[1].sampleId, 2);
-  assert.equal(reopened.getSnapshot().samples[1].segmentId, 2);
-  assert.equal(reopened.getSnapshot().samples[1].segmentElapsedMs, 0); await reopened.close();
+  assert.equal(reopened.getSnapshot().samples[1].receivedAt, utc + 2000); await reopened.close();
 });
 
 test('new readings do not postpone the one-second automatic save', async () => {
@@ -190,7 +276,7 @@ test('parse errors are events, no-value ticks repeat no warnings, completed runs
   assert.equal(f.store.getSnapshot().samples.length, 1); f.store.dispose();
 });
 
-test('pause keeps live preview without storing readings; resume starts a distinct recorded segment', async () => {
+test('pause keeps live preview without storing readings; resume preserves the actual time gap', async () => {
   const f = await fixture(); [0, 500, 1000].forEach(ms => f.accept(ms));
   f.session.markEvent('placement'); f.session.markEvent('heating-start');
   f.at(1100); await Promise.all([f.session.pause(), f.session.pause()]);
@@ -211,13 +297,11 @@ test('pause keeps live preview without storing readings; resume starts a distinc
   await f.session.finish();
   const snapshot = await f.repo.readSnapshot('test');
   assert.deepEqual(snapshot.samples.map(s => s.sampleId), [1,2,3,4]);
-  assert.equal(snapshot.samples[3].segmentId, 2);
-  assert.equal(snapshot.samples[3].segmentElapsedMs, 0);
-  assert.equal(snapshot.run.segments[0].endReason, 'paused');
+  assert.equal(snapshot.samples[3].receivedAt - snapshot.samples[2].receivedAt, 9100);
   assert.equal(snapshot.events.filter(e => e.type === 'recording-paused').length, 1);
   assert.equal(snapshot.events.filter(e => e.type === 'recording-resumed').length, 1);
   const chartPoints = f.session.monitor.getSnapshot(10100).points;
-  assert.notEqual(chartPoints[2].segmentId, chartPoints[3].segmentId);
+  assert.equal(chartPoints[3].receivedAt - chartPoints[2].receivedAt, 9100);
   f.store.dispose();
 });
 
@@ -256,7 +340,7 @@ test('additional measurement validates conditions and preserves original samples
   f.accept(20000); await f.session.finish();
   const result = await f.repo.readSnapshot('test');
   assert.deepEqual(result.samples.slice(0,3), original.samples);
-  assert.equal(result.samples[3].sampleId, 4); assert.equal(result.samples[3].segmentId, 2);
+  assert.equal(result.samples[3].sampleId, 4); assert.equal(result.samples[3].receivedAt, utc + 20000);
   assert.deepEqual(result.workspace, original.workspace);
   assert.equal(original.samples.length, 3);
   assert.equal(result.events.filter(e => e.type === 'measurement-end').length, 2);
@@ -268,7 +352,7 @@ test('additional measurement validates conditions and preserves original samples
   assert.equal(reopened.getState().heating, false);
   reopened.startAdditional({ conditions: { container: 'same', seal: 'same', sensor: 'same' } });
   reopened.acceptInput(reading(21000)); await reopened.finish();
-  assert.equal(f.store.getSamples().at(-1).segmentId, 3); f.store.dispose();
+  assert.equal(f.store.getSamples().at(-1).sampleId, 5); f.store.dispose();
 });
 
 test('additional measurement is blocked until failed completion is saved and for read-only runs', async () => {
@@ -281,4 +365,24 @@ test('additional measurement is blocked until failed completion is saved and for
   const readonly = await openRunStore({ repository: f.repo, id: 'test', locks: { request: async (_, __, cb) => cb(null) }, timers });
   assert.throws(() => createSession({ store: readonly }).startAdditional(checked), /저장하고 작성 권한/);
   readonly.dispose(); f.store.dispose();
+});
+
+
+test('older recordings reopen and append without creating new segment metadata', async () => {
+  const f = await fixture(); f.accept(0); await f.session.finish();
+  const legacy = f.store.getSnapshot(); await f.store.close();
+  legacy.run.schemaVersion = 1; legacy.run.segments = [{ id: 1, startedAt: utc }];
+  legacy.samples[0].segmentId = 1; legacy.samples[0].segmentElapsedMs = 0;
+  await f.repo.commitBatch({ ...legacy, baseRunRevision: legacy.run.runRevision });
+  const store = await openRunStore({ repository: f.repo, id: 'test', locks: locks(), timers });
+  const session = createSession({ store, clock: f.clock });
+  session.startAdditional({ conditions: { container: 'same', seal: 'same', sensor: 'same' } });
+  session.acceptInput(reading(10000)); await session.finish();
+  const saved = await f.repo.readSnapshot('test');
+  assert.deepEqual(saved.samples[0], legacy.samples[0]);
+  assert.equal(saved.samples[1].receivedAt, utc + 10000);
+  assert.equal('segmentId' in saved.samples[1], false);
+  assert.equal('segments' in saved.run, false);
+  assert.equal(buildCsv(saved).includes('segment'), false);
+  await store.close();
 });

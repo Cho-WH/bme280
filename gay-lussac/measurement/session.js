@@ -8,8 +8,7 @@ export function createSession({ store, monitor = createReceptionMonitor(),
   clock = { utc: () => Date.now(), mono: () => performance.now() }, config = CONNECTION }) {
   const initial = store.getSnapshot();
   let state = initial.run.status === 'complete' ? 'ended' : initial.run.status === 'paused' ? 'paused' : 'idle', sampleId = store.getState().lastSampleId;
-  let segments = initial.run.segments;
-  let segment = null, lastInput = null, lastValid = null, finishRequest = null;
+  let lastInput = null, lastValid = null, finishRequest = null;
   let reception = 'waiting';
   const phaseEvents = initial.events.slice(initial.events.findLastIndex((e) => e.type === 'additional-measurement') + 1);
   let heating = phaseEvents.some((e) => e.type === 'heating-start');
@@ -17,18 +16,11 @@ export function createSession({ store, monitor = createReceptionMonitor(),
   const accepting = () => state === 'idle' || state === 'collecting';
   const stamp = () => ({ receivedAt: clock.utc(), monotonicAt: clock.mono() });
   function event(type, payload = {}, source = 'system', at = stamp()) {
-    return store.appendEvent({ receivedAt: at.receivedAt, segmentId: segment?.id ?? null,
-      segmentElapsedMs: segment ? Math.max(0, at.monotonicAt - segment.origin) : null, type, payload, source });
-  }
-  function endSegment(reason, at = stamp()) {
-    if (!segment) return;
-    event('segment-end', { reason }, 'system', at);
-    segments = segments.map((s) => s.id === segment.id ? { ...s, endedAt: lastValid?.receivedAt ?? at.receivedAt, endReason: reason } : s);
-    store.updateRun({ segments }); segment = null;
+    return store.appendEvent({ receivedAt: at.receivedAt, type, payload, source });
   }
   function observe(at = stamp()) {
     const observation = monitor.getSnapshot(at.monotonicAt).reception;
-    const stopped = lastValid && (!segment || at.monotonicAt - lastValid.monotonicAt >= config.staleMs);
+    const stopped = lastValid && (at.monotonicAt - lastValid.monotonicAt >= config.staleMs || at.monotonicAt < lastValid.monotonicAt);
     const next = observation.ready ? 'receiving' : stopped || reception !== 'waiting' ? 'stale' : 'waiting';
     if (next !== reception) {
       reception = next;
@@ -41,21 +33,14 @@ export function createSession({ store, monitor = createReceptionMonitor(),
     if (state === 'paused') { monitor.accept(input, { record: false }); return; }
     if (!accepting()) return;
     const reason = discontinuityReason(lastInput, input, config.staleMs);
-    if (reason) { endSegment(reason, input); event('discontinuity', { reason }, 'system', input); }
-    if (!isValidReading(input)) endSegment(input.type === 'parse-error' ? 'parse-error' : 'invalid-reading', input);
+    if (reason) event('discontinuity', { reason }, 'system', input);
     monitor.accept(input);
     if (isValidReading(input)) {
-      if (!segment) {
-        segment = { id: (segments.at(-1)?.id ?? 0) + 1, origin: input.monotonicAt };
-        segments.push({ id: segment.id, startedAt: input.receivedAt, timeBasis: 'monotonic' });
-        store.updateRun({ segments, status: 'open' });
-        event('segment-start', { attemptId: input.attemptId }, 'system', input);
-      }
+      if (state === 'idle') store.updateRun({ status: 'open' });
       lastValid = input; state = 'collecting';
     }
     if (input.type === 'reading') {
-      store.appendSample({ sampleId: ++sampleId, segmentId: segment?.id ?? null,
-        receivedAt: input.receivedAt, segmentElapsedMs: segment ? input.monotonicAt - segment.origin : null,
+      store.appendSample({ sampleId: ++sampleId, receivedAt: input.receivedAt,
         temperatureC: input.temperatureC, pressureHpa: input.pressureHpa,
         extraChannels: input.extraChannels, validity: input.validity });
     } else event('parse-error', { reasonCode: input.reasonCode }, 'system', input);
@@ -64,15 +49,12 @@ export function createSession({ store, monitor = createReceptionMonitor(),
   function tick() {
     if (!accepting()) return;
     const at = stamp();
-    if (lastValid && (at.monotonicAt - lastValid.monotonicAt >= config.staleMs || at.monotonicAt < lastValid.monotonicAt)) {
-      endSegment('reception-gap', at);
-    }
     observe(at);
   }
   function disconnected() {
     if (state === 'paused') { monitor.disconnected(); return; }
     if (!accepting()) return;
-    endSegment('disconnected'); monitor.disconnected(); observe(); lastInput = null;
+    monitor.disconnected(); observe(); lastInput = null;
   }
   function markEvent(type, payload = {}) {
     if (!accepting() && !(state === 'paused' && ['water-added', 'device-change'].includes(type))) return false;
@@ -86,7 +68,7 @@ export function createSession({ store, monitor = createReceptionMonitor(),
   function pause() {
     if (!accepting()) return Promise.resolve();
     state = 'paused';
-    event('recording-paused', {}, 'user'); endSegment('paused');
+    event('recording-paused', {}, 'user');
     store.updateRun({ status: 'paused' });
     return store.flush();
   }
@@ -111,7 +93,7 @@ export function createSession({ store, monitor = createReceptionMonitor(),
     if (state === 'ended') return Promise.resolve();
     if (finishRequest) return finishRequest;
     if (accepting() || state === 'paused') {
-      state = 'finishing'; event('measurement-end', {}, 'user'); endSegment('finished');
+      state = 'finishing'; event('measurement-end', {}, 'user');
       store.updateRun({ status: 'complete' });
     }
     finishRequest = store.flush().then(() => { state = 'ended'; }).finally(() => { finishRequest = null; });
@@ -119,7 +101,6 @@ export function createSession({ store, monitor = createReceptionMonitor(),
   }
   return { acceptInput, tick, disconnected, markEvent, pause, resume, startAdditional, finish, monitor,
     useTemporary() { if (state === 'finishing') state = 'ended'; },
-    getState: () => ({ state, heating, placed, reception, sampleCount: sampleId, segmentCount: segments.length,
-      elapsedMs: segments.reduce((sum, s) => sum + Math.max(0, (s.endedAt ?? lastValid?.receivedAt ?? s.startedAt) - s.startedAt), 0) }),
+    getState: () => ({ state, heating, placed, reception, sampleCount: sampleId }),
   };
 }

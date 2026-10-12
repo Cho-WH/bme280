@@ -56,12 +56,12 @@ test('battery confirmation requires new readings after the user confirmation, an
   assert.equal(monitor.getSnapshot(2600).battery.ready, false);
 });
 
-test('display cache uses elapsed time and breaks lines at clock changes and invalid input', () => {
+test('display cache retains timestamps and validity without segment IDs', () => {
   const monitor = createReceptionMonitor();
   [0, 500, 1000].forEach((at) => monitor.accept(reading(at)));
   monitor.accept(reading(1500, { receivedAt: 1700000101500 }));
   let snapshot = monitor.getSnapshot(1500);
-  assert.notEqual(snapshot.points[2].segmentId, snapshot.points[3].segmentId);
+  assert.ok(snapshot.points.every(p => !('segmentId' in p)));
   assert.equal(snapshot.reception.ready, false);
   monitor.accept(reading(70000));
   snapshot = monitor.getSnapshot(70000);

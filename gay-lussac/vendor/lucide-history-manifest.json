@@ -1,0 +1,15 @@
+{
+  "library": "Lucide",
+  "version": "0.468.0",
+  "license": "ISC",
+  "source": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons",
+  "icons": [
+    "undo-2",
+    "redo-2"
+  ],
+  "adaptation": "Original paths combined into local SVG symbols; presentation attributes preserved.",
+  "files": {
+    "lucide-LICENSE": "1e7290b35280a048667bbf0ebabac1c7fd52a75300e8b2946ac165715997f2bc",
+    "lucide-history.svg": "ddae48051f8b99156843d582416cc8799bf02b906d8a9075c4e5d839fc107822"
+  }
+}

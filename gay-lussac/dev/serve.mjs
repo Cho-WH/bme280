@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 // Serve the repo root so the sub-app can reuse ../js, ../firmware and ../bmp280-wiring.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const port = Number(process.argv[2] || 8765);
+const port = Number(process.argv[2] || 8766);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Port must be between 1 and 65535.');
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.hex': 'application/octet-stream', '.json': 'application/json' };
