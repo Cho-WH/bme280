@@ -46,6 +46,22 @@ test('analysis CSV follows applied use/exclude, ignoring checks/filter and unloa
   assert.deepEqual(snapshot, before);
 });
 
+test('time range and independent interpretation survive JSON while incompatible metadata is rejected', () => {
+  const { snapshot, work } = fixture();
+  work.applyTimeRange({ startAt: snapshot.samples[0].receivedAt, endAt: snapshot.samples[3].receivedAt });
+  work.setTrendEnabled(true, 'interpretation'); work.setGraphView('extended', 'interpretation');
+  const restored = parseExperimentJson(buildExperimentJson(snapshot));
+  assert.deepEqual(restored.workspace.analysisRange, work.getState().analysisRange);
+  assert.deepEqual(restored.workspace.interpretation, { enabled: true, view: 'extended' });
+  assert.deepEqual(analysisExportInfo(restored).rows.map(s => s.sampleId), [1, 3, 4]);
+  const bad = JSON.parse(buildExperimentJson(snapshot)); bad.snapshot.workspace.analysisRange.endAt -= 1000;
+  assert.throws(() => parseExperimentJson(JSON.stringify(bad)), /일치하지/);
+  bad.snapshot.workspace.analysisRange = null; bad.snapshot.workspace.interpretation.enabled = false;
+  assert.throws(() => parseExperimentJson(JSON.stringify(bad)), /추세선 설정/);
+  delete bad.snapshot.workspace.interpretation; delete bad.snapshot.workspace.analysisRange;
+  assert.equal(parseExperimentJson(JSON.stringify(bad)).workspace.interpretation.enabled, false);
+});
+
 test('JSON round trip preserves full data, pending samples, definitions and view; recomputes enabled trend on opening', () => {
   const { snapshot, work } = fixture(), file = buildExperimentJson(snapshot), restored = parseExperimentJson(file);
   assert.deepEqual(restored.samples, snapshot.samples); assert.deepEqual(restored.events, snapshot.events);

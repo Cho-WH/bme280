@@ -38,15 +38,15 @@ export function createAnalysisChart(canvas, { onSelect = () => {}, responsive = 
     },
   });
   return {
-    render(next, selectedIds) {
+    render(next, selectedIds = []) {
       model = next;
       const selected = new Set(selectedIds), color = c => selected.has(c.raw?.sampleId) ? '#d67b40' : '#197f88';
       chart.data.datasets = [
-        { label: '사용', data: model.type === 'line' ? model.line : model.points, showLine: model.type === 'line', spanGaps: false,
+        { label: '분석 포함', data: model.type === 'line' ? model.line : model.points, showLine: model.type === 'line', spanGaps: false,
           borderColor: '#197f88', pointBackgroundColor: color, pointBorderColor: color,
           pointRadius: c => selected.has(c.raw?.sampleId) ? 5 : 3 },
-        { label: '제외', data: model.excludedPoints, pointStyle: 'crossRot', pointRadius: 5,
-          pointBackgroundColor: '#9caaa9', pointBorderColor: c => selected.has(c.raw?.sampleId) ? '#d67b40' : '#9caaa9' },
+        { label: '제외', data: model.excludedPoints, pointStyle: 'circle', pointRadius: 4, pointBorderWidth: 1.5,
+          pointBackgroundColor: '#ffffffcc', pointBorderColor: c => selected.has(c.raw?.sampleId) ? '#d67b40' : '#aebbbb' },
       ];
       const line = (label, data, dashed = false) => ({ label, data, showLine: true, pointRadius: 0, pointHitRadius: 0,
         borderColor: '#9a5d30', borderWidth: 1.8, borderDash: dashed ? [6, 4] : [], order: 1 });
@@ -94,35 +94,53 @@ export function exportAnalysisPng(model, { name = '', selectedIds = [] } = {}) {
     ctx.textBaseline = 'top'; ctx.fillStyle = '#263b40'; ctx.font = `bold 22px ${font}`;
     title.forEach((text, i) => ctx.fillText(text, 24, 20 + i * 30));
     ctx.font = `16px ${font}`;
-    ctx.fillText(`사용 ${model.points.length}개 · 제외 ${model.excludedPoints.length}개${model.invalidCount ? ` · 값 없음 ${model.invalidCount}개` : ''} · ${model.view === 'extended' ? '직선 연장' : '측정 범위'}   ● 사용   × 제외${selectedIds.length ? '   주황색: 체크' : ''}`, 24, plotTop - 28);
+    ctx.fillText(`분석 포함 ${model.includedCount ?? model.points.length}개 · 제외 ${model.excludedCount ?? model.excludedPoints.length}개 · 그래프 ${model.points.length}개${model.invalidCount ? ` · 값 없음 ${model.invalidCount}개` : ''} · ${model.view === 'extended' ? '직선 연장' : '측정 범위'}   ● 분석 포함   ○ 제외`, 24, plotTop - 28);
     ctx.drawImage(plot, 0, plotTop); ctx.font = `17px ${font}`;
     caption.forEach((text, i) => ctx.fillText(text, 24, plotTop + 648 + i * 26));
     return output.toDataURL('image/png');
   } finally { view.dispose(); }
 }
 
-export function createChartView(canvas) {
+export function createChartView(canvas, { inspect = false, onCursor = () => {}, onLayout = () => {} } = {}) {
   if (!globalThis.Chart) throw new Error('그래프 도구를 불러오지 못했어요. 화면을 새로 열어 주세요.');
+  let currentPoints = [], timeOrigin = 0, cursor = null;
   const chart = new globalThis.Chart(canvas, {
     type: 'line',
+    plugins: inspect ? [{ id: 'shared-time-cursor',
+      afterEvent(c, { event, inChartArea }) {
+        if (event.type === 'mouseout' || !inChartArea) { cursor = null; onCursor(null); c.draw(); return; }
+        if (!currentPoints.length) return;
+        const at = c.scales.x.getValueForPixel(event.x) * 1000 + timeOrigin;
+        const point = currentPoints.reduce((best, p) => Math.abs(p.receivedAt - at) < Math.abs(best.receivedAt - at) ? p : best);
+        cursor = (point.receivedAt - timeOrigin) / 1000; onCursor(point); c.draw();
+      },
+      afterDraw(c) {
+        if (cursor !== null && c.chartArea) {
+          const x = c.scales.x.getPixelForValue(cursor), { top, bottom } = c.chartArea, ctx = c.ctx;
+          ctx.save(); ctx.strokeStyle = '#718b94'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke(); ctx.restore();
+        }
+        onLayout();
+      },
+    }] : [],
     data: { datasets: [
       { label: '온도 (℃)', yAxisID: 'temperature', borderColor: '#d67b40', backgroundColor: '#d67b40', data: [] },
-      { label: '압력 (hPa)', yAxisID: 'pressure', borderColor: '#197f88', backgroundColor: '#197f88', data: [] },
+      { label: inspect ? '기압 (hPa)' : '압력 (hPa)', yAxisID: 'pressure', borderColor: '#197f88', backgroundColor: '#197f88', data: [] },
     ] },
     options: {
       responsive: true, maintainAspectRatio: false, animation: false,
       parsing: false, spanGaps: false,
       elements: { point: { radius: 0, hitRadius: 8 }, line: { borderWidth: 2 } },
-      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 7, font: { size: 13 } } } },
+      plugins: { tooltip: { enabled: !inspect }, legend: { display: !inspect, position: 'bottom', labels: { usePointStyle: true, boxWidth: 7, font: { size: 13 } } } },
       scales: {
         x: { type: 'linear', min: -60, max: 0, title: { display: true, text: '지금으로부터 (초)' }, grid: { color: '#edf1f2' } },
         temperature: { type: 'linear', position: 'left', title: { display: true, text: '온도 (℃)' }, grid: { color: '#edf1f2' } },
-        pressure: { type: 'linear', position: 'right', title: { display: true, text: '압력 (hPa)' }, grid: { drawOnChartArea: false } },
+        pressure: { type: 'linear', position: 'right', title: { display: true, text: inspect ? '기압 (hPa)' : '압력 (hPa)', color: '#197f88' }, grid: { drawOnChartArea: false } },
       },
     },
   });
   return {
     render(points, now, { range = 'recent', events = [], origin = points[0]?.receivedAt ?? now, connectGaps = false } = {}) {
+      currentPoints = points; timeOrigin = origin;
       const whole = range === 'all';
       chart.options.scales.x.min = whole ? undefined : -60;
       chart.options.scales.x.max = whole ? undefined : 0;
@@ -134,7 +152,7 @@ export function createChartView(canvas) {
           const x = whole ? (point.receivedAt - origin) / 1000 : (point.monotonicAt - now) / 1000;
           const delta = previous ? point.receivedAt - previous.receivedAt : 0;
           if (previous && (delta < 0 || (!connectGaps && delta >= CONNECTION.staleMs))) data.push({ x, y: null });
-          data.push({ x, y: point.validity[field] === 'valid' ? point[field] : null });
+          data.push({ x, y: point.validity[field] === 'valid' ? point[field] : null, sampleId: point.sampleId });
           previous = point;
         }
         chart.data.datasets[index].data = data;
@@ -152,6 +170,13 @@ export function createChartView(canvas) {
       chart.update('none');
     },
     resize() { chart.resize(); },
+    timeGeometry() {
+      if (!chart.chartArea || !chart.scales?.x) return null;
+      const { left, top, right, bottom } = chart.chartArea;
+      return { left, top, width: right - left, height: bottom - top,
+        pixel: time => chart.scales.x.getPixelForValue((time - timeOrigin) / 1000),
+        time: pixel => chart.scales.x.getValueForPixel(pixel) * 1000 + timeOrigin };
+    },
     exportPng() { return chart.toBase64Image(); },
     dispose() { chart.destroy(); },
   };

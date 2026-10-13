@@ -30,7 +30,8 @@ let runStore = null, session = null, openingRun = null, importingRun = false;
 let lastEventPaint = -1;
 let chartRange = 'recent';
 const LAST_RUN = 'bme280.gay-lussac.last-run';
-const analysisView = createAnalysisView(document.querySelector('[data-screen="analysis"]'), { onError: showMessage });
+const analysisView = createAnalysisView(document.querySelector('[data-screen="analysis"]'), { onError: showMessage,
+  onExport: (kind, anchor) => fileControls.export(kind, anchor) });
 const fileControls = createFileControls({ getSnapshot: () => runStore?.getSnapshot() ?? null,
   canExportGraph: () => screen === 'analysis' && analysisView.hasGraph(),
   exportPng: name => analysisView.exportPng(name), onMessage: showMessage, onError: showMessage,

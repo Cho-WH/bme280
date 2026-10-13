@@ -1,5 +1,6 @@
 import { createCalculator, columnLabel } from '../analysis/calculations.js';
 import { validateExperimentSnapshot } from './import-validation.js';
+import { scopeMembership } from '../analysis/scope.js';
 export { parseExperimentCsv } from './csv-import.js';
 
 const FIELDS = ['sample_id', 'timestamp',
@@ -20,8 +21,7 @@ export function buildCsv(snapshot) {
 
 export function analysisExportInfo(snapshot) {
   const work = snapshot.workspace;
-  const candidates = new Set(work?.appliedIds ?? snapshot.samples.map(s => s.sampleId));
-  const excluded = new Set(work?.exclusions.map(e => e.sampleId) ?? []);
+  const { candidates, excluded } = scopeMembership(work, snapshot.samples.map(s => s.sampleId));
   const rows = snapshot.samples.filter(s => candidates.has(s.sampleId));
   return { candidateCount: rows.length, excludedCount: rows.filter(s => excluded.has(s.sampleId)).length,
     rows: rows.filter(s => !excluded.has(s.sampleId)), columns: work?.calculatedColumns ?? [] };

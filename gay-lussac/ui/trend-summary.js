@@ -14,18 +14,23 @@ const number = value => formatCalculated(Object.is(value, -0) ? 0 : value);
 // Shared with the PNG caption so exported values match the visible analysis.
 export function trendSummary(model) {
   const regression = model?.regression, fit = regression?.enabled ? regression.result : null;
-  if (!fit) return { equation: '', detail: '' };
-  if (fit.reason) return { equation: trendReasons[fit.reason], detail: `사용 ${fit.count}개` };
+  if (!fit) return { equation: '', detail: '', metrics: [] };
+  if (fit.reason) return { equation: trendReasons[fit.reason], detail: `회귀 자료 ${fit.count}개`, metrics: [] };
   const time = regression.timeOrigin !== null;
   const equation = `${model.yLabel} = ${number(fit.slope)} × ${time ? '경과 시간(초)' : model.xLabel} ${fit.intercept < 0 ? '−' : '+'} ${number(Math.abs(fit.intercept))}`;
-  const metrics = [fit.rSquared === null ? 'R² —' : `R² ${number(fit.rSquared)}`, `사용 ${fit.count}개`];
+  const slopeUnit = model.xUnit && model.yUnit ? `${model.yUnit}/${model.xUnit}` : '';
+  const withUnit = (value, unit) => `${number(value)}${unit ? ' ' + unit : ''}`;
+  const items = [{ label: '회귀 자료', value: `${fit.count.toLocaleString()}개` },
+    { label: '기울기', value: withUnit(fit.slope, slopeUnit) }, { label: 'y절편', value: withUnit(fit.intercept, model.yUnit) },
+    { label: 'R²', value: fit.rSquared === null ? '—' : number(fit.rSquared) }];
+  const metrics = items.map(item => `${item.label} ${item.value}`);
   if (time) metrics.push('기준 ' + formatClockTime(clockTime(regression.timeOrigin)));
-  if (model.view === 'extended') {
+  if (fit.xIntercept !== null) {
     const absoluteZero = model.xColumnId === 'temperatureC' && model.yColumnId === 'pressureHpa';
-    metrics.push(`${absoluteZero ? '절대영도 추정' : time ? '경과 시간의 x절편' : 'x절편'} ${number(fit.xIntercept)}${absoluteZero ? ' ℃' : time ? '초' : ''}`);
+    metrics.push(`${absoluteZero ? 'x절편 · 절대영도 추정' : time ? '경과 시간의 x절편' : 'x절편'} ${withUnit(fit.xIntercept, model.xUnit)}`);
     if (fit.xIntercept < fit.minX || fit.xIntercept > fit.maxX) metrics.push('측정 범위 밖 추정');
   }
   if (fit.rSquaredReason) metrics.push(trendReasons[fit.rSquaredReason]);
   else if (fit.xInterceptReason) metrics.push(trendReasons[fit.xInterceptReason]);
-  return { equation, detail: metrics.join(' · ') };
+  return { equation, detail: metrics.join(' · '), metrics: items };
 }

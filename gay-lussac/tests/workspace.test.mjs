@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createWorkspace } from '../analysis/workspace.js';
+import { scopeMembership } from '../analysis/scope.js';
 
 const samples = (count, start = 1) => Array.from({ length: count }, (_, index) => ({ sampleId: start + index,
   receivedAt: 1700000000000 + (start + index) * 100,
@@ -22,6 +23,68 @@ function applyPreset(workspace, kind) {
 }
 
 const graphAxes = { xColumnId: 'temperatureC', yColumnId: 'pressureHpa', type: 'scatter' };
+test('time range selects actual timestamps including duplicate boundaries and keeps exclusions independent of table checks', () => {
+  const f = fixture(), w = f.workspace, raw = f.store.getSnapshot().samples;
+  w.setSelection([80]); w.exclude([2, 90]); w.setFilter({ ranges: { sampleId: { min: 70 } } });
+  const revision = w.getState().analysisInputRevision;
+  w.applyTimeRange({ startAt: raw[0].receivedAt, endAt: raw[2].receivedAt });
+  assert.deepEqual(w.getState().appliedIds, [1, 2, 3]); assert.deepEqual(w.getState().selectedIds, []);
+  assert.equal(w.getState().analysisInputRevision, revision + 1);
+  const membership = scopeMembership(w.getState());
+  assert.deepEqual([1, 2, 90].map(membership.status), ['included', 'excluded', 'outside']);
+  assert.deepEqual(w.getGraphData().points.map(p => p.sampleId), [1, 3]);
+  assert.equal(w.getSummary().excludedCount, 1);
+  const applied = w.getState(); w.undo(); assert.equal(w.getState().appliedScope, 'all'); w.redo();
+  assert.deepEqual(w.getState().analysisRange, applied.analysisRange);
+  f.append(20); w.showNewData();
+  assert.deepEqual(fixture({ snapshot: f.store.getSnapshot() }).workspace.getState().appliedIds, [1, 2, 3]);
+  w.applyScope('all'); assert.equal(w.getSummary().includedCount, 118); assert.equal(w.getState().analysisRange, null);
+});
+test('time range preserves source order across midnight, duplicate and backwards times, even after late overlapping samples', () => {
+  const raw = samples(5), midnight = Date.UTC(2026, 9, 13);
+  raw.forEach((s, i) => { s.receivedAt = midnight + [-100, 0, 0, -50, 100][i]; });
+  const f = fixture({ snapshot: { run: { id: 'range' }, samples: raw, workspace: null } }), w = f.workspace;
+  w.applyTimeRange({ startAt: midnight - 50, endAt: midnight });
+  assert.deepEqual(w.getState().appliedIds, [2, 3, 4]);
+  const saved = f.store.getSnapshot(); saved.samples.push({ ...raw[1], sampleId: 6 });
+  const reopened = fixture({ snapshot: saved }).workspace; reopened.showNewData();
+  assert.deepEqual(reopened.getState().appliedIds, [2, 3, 4]);
+  const resaved = { ...saved, workspace: reopened.getState() };
+  assert.deepEqual(fixture({ snapshot: resaved }).workspace.getState().appliedIds, [2, 3, 4]);
+  assert.deepEqual(f.store.getSnapshot().samples, raw);
+});
+test('range errors and failed handoff never replace the saved analysis or its undo history', () => {
+  const f = fixture(), w = f.workspace, raw = f.store.getSnapshot().samples, before = w.getState();
+  assert.throws(() => w.applyTimeRange({ startAt: NaN, endAt: 1 }), /시작과 끝/);
+  assert.throws(() => w.applyTimeRange({ startAt: raw[0].receivedAt + 1, endAt: raw[0].receivedAt + 2 }), /자료가 없/);
+  f.store.saveWorkspace = () => { throw new Error('저장 실패'); };
+  assert.throws(() => w.applyTimeRange({ startAt: raw[0].receivedAt, endAt: raw[1].receivedAt }), /저장 실패/);
+  assert.deepEqual(w.getState(), before); assert.equal(w.getSummary().undoLabel, '');
+});
+test('interpretation locks temperature/pressure, preserves exploratory axes and opt-in trend/extension through persistence and history', () => {
+  const f = fixture(), w = f.workspace;
+  w.saveColumn(calc('kelvin')); w.setGraph({ ...graphAxes, xColumnId: 'calc-kelvin' }); w.setTrendEnabled(true);
+  const explore = w.getGraphData(), before = w.getState();
+  assert.equal(w.getGraphData('interpretation').regression.enabled, false); assert.deepEqual(w.getState(), before);
+  w.setTrendEnabled(true, 'interpretation'); w.setGraphView('extended', 'interpretation');
+  const result = w.getGraphData('interpretation');
+  assert.equal(result.xColumnId, 'temperatureC'); assert.equal(result.yColumnId, 'pressureHpa');
+  assert.equal(result.regression.result.count, 100); assert.equal(result.view, 'extended');
+  assert.equal(w.getGraphData().xColumnId, 'calc-kelvin'); assert.deepEqual(w.getGraphData().regression, explore.regression);
+  w.exclude([2]); assert.equal(w.getGraphData('interpretation').regression.result.count, 99);
+  const restored = fixture({ snapshot: f.store.getSnapshot() }).workspace;
+  assert.deepEqual(restored.getGraphData('interpretation'), w.getGraphData('interpretation'));
+  w.setTrendEnabled(false, 'interpretation'); assert.equal(w.getGraphData('interpretation').trend.extension.length, 0);
+  w.undo(); assert.equal(w.getGraphData('interpretation').view, 'extended');
+  assert.throws(() => fixture({ snapshot: f.store.getSnapshot(), writable: false }).workspace.setTrendEnabled(false, 'interpretation'), /읽기 전용/);
+});
+test('new three-way status filters coexist with legacy non-excluded filters without changing analysis', () => {
+  const { workspace: w } = fixture(); w.setSelection([1, 2, 3]); w.applyScope('selection'); w.exclude([2, 8]);
+  w.setFilter({ analysisStatus: ['included'] }); assert.deepEqual(w.getRows().map(s => s.sampleId), [1, 3]);
+  w.setFilter({ analysisStatus: ['excluded', 'outside'] }); assert.equal(w.getRows().length, 98);
+  w.setFilter({ usage: 'included' }); assert.equal(w.getRows().length, 98);
+  assert.deepEqual(w.getState().appliedIds, [1, 2, 3]);
+});
 test('enabled trend follows scope and use/exclude changes; table operations keep the same fit', () => {
   const f = fixture(), w = f.workspace; w.setGraph(graphAxes); w.setTrendEnabled(true);
   const initial = w.getState().regression;

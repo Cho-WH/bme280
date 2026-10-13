@@ -7,7 +7,7 @@ import { positionPopover } from './anchored-popover.js';
 export function createFileControls({ getSnapshot, canExportGraph, exportPng, importSnapshot, onMessage, onError }) {
   const $ = id => document.getElementById(id), events = new AbortController(), { signal } = events;
   const menu = $('download-menu'), button = $('download-menu-button'), dialog = $('analysis-export-dialog');
-  let csvSnapshot = null, importBusy = false;
+  let csvSnapshot = null, importBusy = false, returnAnchor = button;
   const filename = (snapshot, suffix) => {
     const name = snapshot.run.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim().slice(0, 60);
     const day = new Date(snapshot.run.createdAt).toISOString().slice(0, 10);
@@ -15,7 +15,7 @@ export function createFileControls({ getSnapshot, canExportGraph, exportPng, imp
   };
   const closeMenu = () => { if (menu.matches(':popover-open')) menu.hidePopover(); };
   const act = async action => { try { await action(); } catch (error) { onError(error.message); } };
-  function closeDialog() { dialog.close(); csvSnapshot = null; button.focus(); }
+  function closeDialog() { dialog.close(); csvSnapshot = null; returnAnchor.focus(); }
   function refreshMenu() {
     const snapshot = getSnapshot(), info = snapshot && analysisExportInfo(snapshot);
     $('export-csv').disabled = !snapshot?.samples.length;
@@ -29,33 +29,36 @@ export function createFileControls({ getSnapshot, canExportGraph, exportPng, imp
   window.addEventListener('resize', () => positionPopover(menu, button), { signal });
   window.addEventListener('scroll', closeMenu, { signal, capture: true });
   window.addEventListener('hashchange', closeMenu, { signal });
-  $('export-csv').addEventListener('click', () => { closeMenu(); void act(() => {
-    const snapshot = getSnapshot();
-    downloadText(buildCsv(snapshot), filename(snapshot, '.csv'));
-    onMessage(`전체 원자료 ${snapshot.samples.length}개의 CSV 다운로드를 요청했어요.`);
-  }); }, { signal });
-  $('export-json').addEventListener('click', () => { closeMenu(); void act(() => {
-    const snapshot = getSnapshot();
-    downloadText(buildExperimentJson(snapshot), filename(snapshot, '.json'), 'application/json;charset=utf-8');
-    onMessage('전체 실험 JSON 다운로드를 요청했어요. 시작 화면의 실험 파일 열기에서 다시 열 수 있어요.');
-  }); }, { signal });
-  $('export-png').addEventListener('click', () => { closeMenu(); void act(() => {
-    const snapshot = getSnapshot();
-    downloadUrl(exportPng(snapshot.run.name), filename(snapshot, '-graph.png'));
-    onMessage('현재 그래프의 PNG 다운로드를 요청했어요.');
-  }); }, { signal });
-  $('export-analysis-csv').addEventListener('click', () => { closeMenu(); void act(() => {
-    csvSnapshot = getSnapshot();
-    const info = analysisExportInfo(csvSnapshot);
-    $('analysis-export-count').textContent = `분석 대상 ${info.candidateCount}개 − 제외 ${info.excludedCount}개 = 출력 ${info.rows.length}행`;
-    $('analysis-export-columns').replaceChildren(...info.columns.map(column => {
-      const label = document.createElement('label'), input = document.createElement('input');
-      input.type = 'checkbox'; input.value = column.id; input.checked = true;
-      label.append(input, document.createTextNode(columnLabel(column))); return label;
-    }));
-    if (!info.columns.length) $('analysis-export-columns').textContent = '만든 계산 열이 없습니다.';
-    dialog.showModal();
-  }); }, { signal });
+  function exportFile(kind, anchor = button) {
+    closeMenu();
+    return act(() => {
+      const snapshot = getSnapshot();
+      if (!snapshot) throw new Error('먼저 실험을 열어 주세요.');
+      if (kind === 'csv') {
+        downloadText(buildCsv(snapshot), filename(snapshot, '.csv'));
+        onMessage('전체 원자료 ' + snapshot.samples.length + '개의 CSV 다운로드를 요청했어요.');
+      } else if (kind === 'json') {
+        downloadText(buildExperimentJson(snapshot), filename(snapshot, '.json'), 'application/json;charset=utf-8');
+        onMessage('이어하기용 파일 다운로드를 요청했어요. 시작 화면의 실험 파일 열기에서 다시 열 수 있어요.');
+      } else if (kind === 'png') {
+        downloadUrl(exportPng(snapshot.run.name), filename(snapshot, '-graph.png'));
+        onMessage('현재 그래프의 PNG 다운로드를 요청했어요.');
+      } else if (kind === 'analysis-csv') {
+        csvSnapshot = snapshot; returnAnchor = anchor;
+        const info = analysisExportInfo(csvSnapshot);
+        $('analysis-export-count').textContent = '분석 범위 ' + info.candidateCount + '개 − 제외 ' + info.excludedCount + '개 = 출력 ' + info.rows.length + '행';
+        $('analysis-export-columns').replaceChildren(...info.columns.map(column => {
+          const label = document.createElement('label'), input = document.createElement('input');
+          input.type = 'checkbox'; input.value = column.id; input.checked = true;
+          label.append(input, document.createTextNode(columnLabel(column))); return label;
+        }));
+        if (!info.columns.length) $('analysis-export-columns').textContent = '만든 계산 열이 없습니다.';
+        dialog.showModal();
+      }
+    });
+  }
+  for (const kind of ['csv', 'json', 'png', 'analysis-csv'])
+    $('export-' + kind).addEventListener('click', () => { void exportFile(kind); }, { signal });
   $('cancel-analysis-export').addEventListener('click', closeDialog, { signal });
   dialog.addEventListener('close', () => { csvSnapshot = null; }, { signal });
   $('analysis-export-form').addEventListener('submit', event => {
@@ -85,5 +88,5 @@ export function createFileControls({ getSnapshot, canExportGraph, exportPng, imp
       $('import-file-message').textContent = error.message; $('import-file-message').hidden = false;
     } finally { importBusy = false; $('import-file').disabled = false; }
   }); }, { signal });
-  return { dispose() { events.abort(); closeMenu(); dialog.close(); } };
+  return { export: exportFile, dispose() { events.abort(); closeMenu(); dialog.close(); } };
 }

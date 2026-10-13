@@ -124,57 +124,41 @@
     </section>
 
     <section data-screen="analysis" class="analysis-screen" hidden>
-      <div class="section-heading"><div><p class="eyebrow">03 / 자료 분석</p><h1 tabindex="-1">자료 분석</h1></div><div class="analysis-views" role="group" aria-label="자료 분석 보기"><button type="button" data-analysis-view="table" aria-pressed="true">표</button><button type="button" data-analysis-view="split" aria-pressed="false">표·그래프</button><button type="button" data-analysis-view="graph" aria-pressed="false">그래프</button></div></div>
-      <div class="analysis-data-status"><p id="analysis-message" role="status"></p><button id="apply-new-data" data-workspace-action disabled>새 자료 보기 (0개)</button></div>
+      <div class="section-heading analysis-heading"><div><p class="eyebrow">03 / 자료 분석</p><h1 tabindex="-1">자료에서 관계를 발견해요</h1></div><span id="analysis-message" class="analysis-data-status"></span></div>
       <button id="finish-for-analysis" class="primary" hidden>측정을 마치고 분석</button>
-      <section class="table-panel analysis-table">
-        <div class="analysis-panel-heading">
-          <h2>측정 자료</h2>
-          <div class="analysis-scope">
-            <span id="scope-count">분석에 사용할 자료 0개</span><span id="scope-detail"></span>
-            <span id="designated-analysis" hidden>지정 분석 <span id="designated-count"></span><button id="apply-all" aria-label="지정 분석 해제" data-workspace-action>해제</button></span>
-          </div>
-        </div>
-        <div class="table-selection">
-          <div class="history-actions"><button id="undo-analysis" aria-label="되돌리기" title="되돌리기" data-workspace-action disabled><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="./vendor/lucide-history.svg#undo-2"></use></svg></button><button id="redo-analysis" aria-label="다시 실행" title="다시 실행" data-workspace-action disabled><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="./vendor/lucide-history.svg#redo-2"></use></svg></button></div>
-          <form id="range-check" class="range-check">
-            <span>범위 체크:</span><input id="range-start" type="number" min="1" step="1" aria-label="범위 시작 자료 ID" data-workspace-action><span>~</span><input id="range-end" type="number" min="1" step="1" aria-label="범위 끝 자료 ID" data-workspace-action><button type="submit" data-workspace-action>확인</button>
-          </form>
-          <div class="status-actions" role="group" aria-label="체크한 자료의 분석 상태"><button id="restore-selection" data-workspace-action disabled>사용</button><button id="exclude-selection" data-workspace-action disabled>제외</button></div>
-          <button id="apply-selection" data-workspace-action disabled>선택한 자료만 분석</button><span id="selection-count">체크 0개</span>
-        </div>
-        <div class="analysis-feedback" role="alert"><p id="analysis-feedback" tabindex="-1"></p></div>
-        <div id="column-filter-panel" class="column-filter-panel" popover="auto" role="dialog" aria-label="열 필터"></div>
-        <div id="calculation-menu" class="column-filter-panel calculation-menu" popover="auto" role="dialog" aria-label="계산 열"></div>
-        <div id="analysis-layout" class="analysis-layout" data-view="table">
-          <div id="analysis-table-pane" class="analysis-table-pane">
-          <button id="hidden-column-filters" class="hidden-column-filters" type="button" hidden></button>
-          <div id="raw-scroll" class="table-scroll" tabindex="0" role="region" aria-label="측정 원자료 연속 스크롤" aria-describedby="table-status">
-            <table class="raw-table"><colgroup><col style="width:32px"><col style="width:60px"><col style="width:92px"><col style="width:100px"><col style="width:102px"><col style="width:106px"><col></colgroup><thead><tr><th scope="col"><input id="select-all" type="checkbox" aria-label="표시된 자료 전체 선택" data-workspace-action></th><th scope="col" class="add-column-header"><button id="add-calculation" aria-expanded="false" aria-controls="calculation-menu" data-workspace-action>+ 계산 열</button></th></tr></thead><tbody id="raw-rows"></tbody></table>
-          </div>
-          </div>
-          <section id="analysis-graph-pane" class="analysis-graph-pane" aria-label="분석 그래프" hidden>
-            <form id="graph-form" class="graph-controls">
-              <label>X축<select id="graph-x" aria-label="그래프 X축" data-workspace-action></select></label>
-              <label>Y축<select id="graph-y" aria-label="그래프 Y축" data-workspace-action></select></label>
-              <label>표시<select id="graph-type" aria-label="그래프 표시 방식" data-workspace-action><option value="scatter">산점도</option><option value="line">시간 변화선</option></select></label>
-              <button id="graph-apply" type="submit" data-workspace-action>그래프 만들기</button>
-              <label id="graph-gap-control" class="graph-gap-control" hidden><input id="graph-gaps" type="checkbox" data-workspace-action>시간 공백 연결</label>
-            </form>
-            <div class="trend-controls">
-              <label class="trend-toggle" title="현재 분석에 사용하는 자료로 계산한 선형 회귀선을 표시합니다."><input id="trend-enabled" type="checkbox" data-workspace-action>추세선 표시</label>
-              <div id="trend-views" class="trend-views" role="group" aria-label="그래프 범위" hidden>
-                <button type="button" data-graph-view="measured" aria-pressed="true" data-workspace-action>측정 범위</button>
-                <button type="button" data-graph-view="extended" aria-pressed="false" data-workspace-action>직선 연장</button>
-              </div>
-            </div>
-            <div class="graph-summary"><span id="graph-count"></span><span id="graph-legend" hidden><span class="graph-used">● 사용</span> <span class="graph-excluded">× 제외</span> <span class="graph-checked">● 체크</span></span></div>
-            <div class="graph-stage"><div id="graph-plot" class="graph-plot" hidden><canvas id="analysis-chart" role="img" aria-label="분석 그래프"></canvas></div><p id="graph-empty" class="graph-empty">X축과 Y축을 선택하고 그래프를 만드세요.</p></div>
-            <div class="trend-result" aria-live="polite" aria-atomic="true"><div id="trend-equation"></div><div id="trend-detail"></div></div>
+      <nav class="analysis-tabs" aria-label="분석 작업"><span class="analysis-tab-indicator" aria-hidden="true"></span><button id="tab-overview" data-analysis-task="overview" aria-current="page">원 자료 보기</button><button id="tab-relationship" data-analysis-task="relationship">관계 그래프</button><button id="tab-interpretation" data-analysis-task="interpretation">결과 해석</button></nav>
+      <section class="analysis-workspace">
+        <div class="analysis-scope-bar"><div class="scope-summary"><span class="scope-dot" aria-hidden="true"></span><strong id="scope-count"></strong><span id="scope-detail"></span><span id="scope-time"></span></div><div class="scope-actions"><button id="apply-new-data" hidden></button><button id="edit-analysis-range" class="quiet-button">구간 수정</button><div class="history-actions"><button id="undo-analysis" aria-label="되돌리기" title="되돌리기" data-workspace-action disabled>↶</button><button id="redo-analysis" aria-label="다시 실행" title="다시 실행" data-workspace-action disabled>↷</button></div></div></div>
+        <p id="analysis-feedback" class="analysis-feedback" role="alert"></p>
+        <section id="overview-pane" class="overview-pane" aria-labelledby="overview-title">
+          <div class="plot-heading"><div><span class="plot-kicker">EXPERIMENT OVERVIEW</span><h2 id="overview-title">시간에 따른 변화</h2></div><div class="series-keys"><span class="temperature-key">온도 · 왼쪽 축</span><span class="pressure-key">기압 · 오른쪽 축</span></div></div>
+          <div id="overview-stage" class="overview-stage"><canvas id="overview-chart" role="img" aria-label="시간에 따른 온도와 기압. 왼쪽 온도 축, 오른쪽 기압 축"></canvas><div id="range-overlay" class="range-overlay" hidden><div id="range-window" class="range-window"></div><button type="button" id="range-start-handle" class="range-handle" role="slider" aria-label="분석 구간 시작" aria-orientation="horizontal"><span></span></button><button type="button" id="range-end-handle" class="range-handle" role="slider" aria-label="분석 구간 끝" aria-orientation="horizontal"><span></span></button></div><p id="overview-empty" class="graph-empty" hidden>아직 불러온 자료가 없어요.</p></div>
+          <div id="overview-readout" class="overview-readout" aria-live="off">그래프 위에서 같은 시점의 두 값을 확인할 수 있어요.</div>
+          <div id="overview-actions" class="overview-actions"><button id="use-all-data" class="primary" data-workspace-action>전체 자료로 관계 보기 <span aria-hidden="true">→</span></button><button id="choose-range" data-workspace-action>구간 골라 분석하기</button></div>
+          <form id="range-form" class="range-controls" hidden><div class="range-fields"><label>시작 <span class="input-unit"><input id="time-range-start" type="number" step="any" required aria-label="시작 경과 시간" data-workspace-action><span>초</span></span></label><span class="range-dash">—</span><label>끝 <span class="input-unit"><input id="time-range-end" type="number" step="any" required aria-label="끝 경과 시간" data-workspace-action><span>초</span></span></label><div class="range-count"><strong id="range-count"></strong><small id="range-hint">선택 중 · 아직 분석에 적용하지 않음</small></div></div><div class="range-buttons"><button id="reset-time-range" type="button">전체 구간</button><button id="cancel-time-range" type="button">취소</button><button id="apply-time-range" class="primary" type="submit" data-workspace-action>이 구간으로 분석 <span aria-hidden="true">→</span></button></div><p id="range-error" role="status"></p></form>
+          <button id="overview-table-toggle" class="table-disclosure" aria-expanded="false" aria-controls="analysis-table-pane"><span class="disclosure-chevron" aria-hidden="true">⌄</span> 측정값 표 보기</button>
+        </section>
+        <div id="analysis-layout" class="analysis-layout" data-table-open="false">
+          <section id="analysis-table-pane" class="analysis-table-pane" hidden aria-label="측정값 표">
+            <div class="table-tools"><strong>측정값 표</strong><div><button id="table-all-columns" aria-pressed="false">전체 열</button><button data-add-calculation data-workspace-action>+ 계산 열 추가</button><button id="close-analysis-table" aria-label="표 닫기">×</button></div></div>
+            <div id="selection-toolbar" class="table-selection" hidden><strong id="selection-count"></strong><button id="exclude-selection" data-workspace-action>분석에서 제외</button><button id="restore-selection" data-workspace-action>다시 포함</button><button id="clear-selection" data-workspace-action>선택 해제</button><input id="exclusion-reason" maxlength="200" aria-label="제외 사유 (선택)" placeholder="제외 사유 (선택)" data-workspace-action></div>
+            <button id="hidden-column-filters" class="hidden-column-filters" type="button" hidden></button>
+            <div id="raw-scroll" class="table-scroll" tabindex="0" role="region" aria-label="측정 원자료 연속 스크롤" aria-describedby="table-status"><table class="raw-table"><colgroup></colgroup><thead><tr><th scope="col"><input id="select-all" type="checkbox" aria-label="표시된 자료 전체 선택" data-workspace-action></th><th scope="col" class="add-column-header"><button id="add-calculation" aria-expanded="false" aria-controls="calculation-menu" data-workspace-action>+ 계산 열</button></th></tr></thead><tbody id="raw-rows"></tbody></table></div><p id="table-status" class="table-status"></p>
+          </section>
+          <section id="analysis-graph-pane" class="analysis-graph-pane" hidden aria-label="관계 그래프">
+            <div class="plot-heading"><div><span id="graph-kicker" class="plot-kicker">EXPLORE THE RELATIONSHIP</span><h2 id="graph-title">두 물리량의 관계</h2></div><span id="fixed-axes-badge" class="fixed-axes-badge" hidden>온도 · 기압</span></div>
+            <form id="graph-form" class="graph-controls"><label>가로축<select id="graph-x" aria-label="그래프 가로축" data-workspace-action></select></label><span aria-hidden="true">×</span><label>세로축<select id="graph-y" aria-label="그래프 세로축" data-workspace-action></select></label></form>
+            <div class="graph-with-tools"><div class="graph-main"><div class="graph-summary"><span id="graph-count"></span><span id="graph-legend"><span class="graph-used">● 분석 포함</span><span class="graph-excluded">○ 제외</span></span></div><div class="graph-stage"><div id="graph-plot" class="graph-plot"><canvas id="analysis-chart" role="img" aria-label="분석 그래프"></canvas></div><p id="graph-empty" class="graph-empty" hidden></p>
+              <aside id="point-inspector" class="point-inspector" aria-label="선택한 자료 정보" hidden><div><strong id="point-title"></strong><button id="close-point" aria-label="자료 정보 닫기">×</button></div><dl id="point-values"></dl><p id="point-filter-notice" class="muted" hidden></p><label id="point-reason-label">제외 사유 <small>선택</small><input id="point-reason" maxlength="200" placeholder="필요하면 적어 주세요"></label><button id="point-exclude" data-workspace-action>분석에서 제외</button><button id="point-restore" data-workspace-action hidden>분석에 다시 포함</button></aside>
+            </div></div><aside class="graph-tools" aria-label="그래프 도구"><span class="tool-heading">분석 도구</span><label class="switch-row"><span>추세선</span><input id="trend-enabled" type="checkbox" role="switch" data-workspace-action></label><label class="switch-row"><span>직선 연장</span><input id="trend-extended" type="checkbox" role="switch" data-workspace-action></label><button id="graph-table-toggle" aria-expanded="false" aria-controls="analysis-table-pane">표 보기</button><button data-add-calculation data-workspace-action>계산 열 추가</button><details id="graph-display-settings"><summary>표시 설정</summary><label>그래프 종류<select id="graph-type" aria-label="그래프 표시 방식" data-workspace-action><option value="scatter">산점도</option><option value="line">시간 변화선</option></select></label><label id="graph-gap-control" hidden><input id="graph-gaps" type="checkbox" data-workspace-action> 시간 공백 연결</label></details></aside></div>
+            <section id="trend-result" class="trend-result" aria-live="polite"><p id="trend-empty">추세선을 켜면 두 물리량의 관계를 수치로 살펴볼 수 있어요.</p><div id="trend-metrics" class="trend-metrics" hidden></div><details id="trend-details" hidden><summary>상세 보기</summary><p id="trend-equation"></p><p id="trend-detail"></p></details></section>
           </section>
         </div>
-        <div class="table-footer"><label for="exclusion-reason">제외 사유 (선택)</label><input id="exclusion-reason" maxlength="200" data-workspace-action><p id="table-status" class="table-status"></p></div>
+        <section id="interpretation-summary" class="interpretation-summary" hidden><div class="interpretation-copy"><span class="plot-kicker">READ YOUR RESULTS</span><h2>관계를 설명하는 근거</h2><p>가로축은 온도(℃), 세로축은 기압(hPa)입니다.</p><details><summary>추세선의 식은 무엇을 뜻하나요?</summary><p>기울기는 온도가 1℃ 높아질 때 기압이 얼마나 달라지는지 나타냅니다. y절편은 이 직선이 온도 0℃에서 가리키는 기압입니다. 식과 측정점을 함께 살펴보세요.</p></details><details><summary>x절편은 무엇을 뜻하나요?</summary><p>직선을 연장했을 때 기압이 0hPa가 되는 온도입니다. 이 실험에서는 절대영도를 추정하는 근거로 살펴볼 수 있지만, 실제로 그 온도까지 측정한 값은 아닙니다.</p></details><details><summary>R²는 무엇을 뜻하나요?</summary><p>선형 모형이 자료의 기압 변화를 얼마나 설명하는지 나타냅니다. 높은 값만으로 비례 관계나 측정의 정확성이 입증되지는 않습니다.</p></details></div><div class="result-exports"><h3>탐구 결과 저장</h3><button data-export="png">그래프 이미지 저장 <span>↗</span></button><button data-export="analysis-csv">분석 자료 CSV 저장 <span>↓</span></button><button data-export="json">나중에 이어하기용 파일 저장 <small>JSON</small></button></div></section>
+        <div id="analysis-toast" class="analysis-toast" role="status" hidden><span></span><button id="undo-toast">되돌리기</button><button id="dismiss-toast" aria-label="알림 닫기">×</button></div>
       </section>
+      <div id="column-filter-panel" class="column-filter-panel" popover="auto" role="dialog" aria-label="열 필터"></div>
+      <div id="calculation-menu" class="column-filter-panel calculation-menu" popover="auto" role="dialog" aria-label="계산 열"></div>
       <dialog id="calculation-dialog" class="calculation-dialog" aria-labelledby="calculation-title">
         <form novalidate>
           <h2 id="calculation-title">계산 열 추가</h2>
@@ -182,7 +166,7 @@
           <div class="calculation-operand" data-operand="lhs"><span>A</span><select data-kind aria-label="A 입력 종류"><option value="column">자료 열</option><option value="constant">숫자</option></select><select data-column aria-label="A 자료 열"></select><input data-value type="number" step="any" aria-label="A 숫자" hidden></div>
           <label class="calculation-operation">연산<select name="op" aria-label="계산 연산"><option value="+">＋</option><option value="-">−</option><option value="*">×</option><option value="/">÷</option><option value="^">거듭제곱 (Aᴮ)</option></select></label>
           <div class="calculation-operand" data-operand="rhs"><span>B</span><select data-kind aria-label="B 입력 종류"><option value="column">자료 열</option><option value="constant">숫자</option></select><select data-column aria-label="B 자료 열"></select><input data-value type="number" step="any" aria-label="B 숫자" hidden></div>
-          <div class="calculation-preview"><p data-expression></p><table aria-label="계산 결과 미리보기"><thead><tr><th>ID</th><th>미리보기</th></tr></thead><tbody data-preview></tbody></table><p data-empty hidden>미리 볼 분석 자료가 없습니다.</p></div>
+          <div class="calculation-preview"><p data-expression></p><table aria-label="계산 결과 미리보기"><thead><tr><th>ID</th><th>입력 A</th><th>입력 B</th><th>결과</th></tr></thead><tbody data-preview></tbody></table><p data-empty hidden>미리 볼 분석 자료가 없습니다.</p></div>
           <p data-error class="calculation-editor-error" role="status"></p>
           <div class="calculation-actions"><button type="button" data-cancel>취소</button><button type="submit" class="primary">열 추가</button></div>
         </form>

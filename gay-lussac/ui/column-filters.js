@@ -44,7 +44,12 @@ export function createColumnFilters(root, { getWorkspace, act, signal }) {
     panel.replaceChildren(title, form);
     let submit = null;
     if (column === 'usage') {
-      statusChoices(form, 'usage', f.usage, [['excluded', '제외'], ['included', '사용']]);
+      if (f.usage !== 'all') {
+        const legacy = document.createElement('p'); legacy.textContent = '이전 필터: ' + ({ included: '제외되지 않은 자료', excluded: '제외 기록이 있는 자료', none: '표시 없음' }[f.usage]); form.append(legacy);
+      }
+      const choices = [['included', '분석 포함'], ['excluded', '제외'], ['outside', '범위 밖']];
+      const inputs = choices.map(([id, label]) => check(form, label, !f.analysisStatus || f.analysisStatus.includes(id), id));
+      for (const input of inputs) input.addEventListener('change', () => apply({ usage: 'all', analysisStatus: inputs.filter(el => el.checked).map(el => el.value) }));
     } else if (column === 'note') {
       statusChoices(form, 'validity', f.validity, [['valid', '정상 범위'], ['invalid', '값 확인 필요']]);
       const reason = labelInput(form, '제외 사유에 포함된 글자', 'text', f.reason ?? ''); reason.maxLength = 200;
@@ -73,7 +78,7 @@ export function createColumnFilters(root, { getWorkspace, act, signal }) {
     const reset = document.createElement('button'); reset.type = 'button'; reset.textContent = '이 열 필터 해제'; actions.append(reset); form.append(actions);
     form.addEventListener('submit', event => { event.preventDefault(); submit?.(); });
     reset.addEventListener('click', () => {
-      if (column === 'usage') apply({ usage: 'all' }, true);
+      if (column === 'usage') apply({ usage: 'all', analysisStatus: null }, true);
       else if (column === 'note') apply({ validity: 'all', reason: '' }, true);
       else { const ranges = columnRanges(current()); delete ranges[column];
         apply({ min: null, max: null, ranges, ...(column === 'receivedAt' ? { clockTime: null } : {}) }, true); }

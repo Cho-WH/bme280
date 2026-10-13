@@ -1,6 +1,7 @@
 import { graphColumns } from '../data/contracts.js';
 import { columnLabel } from './calculations.js';
 import { CONNECTION } from '../program-config.js';
+import { scopeMembership } from './scope.js';
 
 function value(sample, id) {
   if (id === 'receivedAt') return Number.isFinite(sample.receivedAt) ? sample.receivedAt : null;
@@ -13,15 +14,17 @@ function value(sample, id) {
 export function graphData(samples, state, imported = []) {
   if (!state.graph) return null;
   const graph = state.graph, columns = graphColumns(state.calculatedColumns, imported);
-  const candidates = new Set(state.appliedIds), excluded = new Set(state.exclusions.map(e => e.sampleId));
+  const { candidates, excluded } = scopeMembership(state);
   const points = [], excludedPoints = [], line = [];
-  let invalidCount = 0, previous = null;
+  let invalidCount = 0, candidateCount = 0, excludedCount = 0, previous = null;
   for (const sample of samples) {
     if (sample.sampleId > state.tableLastSampleId || !candidates.has(sample.sampleId)) continue;
+    candidateCount++; if (excluded.has(sample.sampleId)) excludedCount++;
     const x = value(sample, graph.xColumnId), y = value(sample, graph.yColumnId);
     const point = { x, y, sampleId: sample.sampleId };
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      invalidCount++; line.push({ x: previous?.x ?? 0, y: null }); previous = null; continue;
+      if (!excluded.has(sample.sampleId)) invalidCount++;
+      line.push({ x: previous?.x ?? 0, y: null }); previous = null; continue;
     }
     if (excluded.has(sample.sampleId)) {
       excludedPoints.push(point); line.push({ x, y: null }); previous = null; continue;
@@ -30,7 +33,9 @@ export function graphData(samples, state, imported = []) {
       || (!graph.connectGaps && sample.receivedAt - previous.receivedAt >= CONNECTION.staleMs))) line.push({ x, y: null });
     points.push(point); line.push(point); previous = { x, receivedAt: sample.receivedAt };
   }
-  return { ...graph, points, excludedPoints, line, invalidCount,
+  return { ...graph, points, excludedPoints, line, invalidCount, candidateCount, excludedCount, includedCount: candidateCount - excludedCount,
+    xUnit: graph.xColumnId === 'receivedAt' ? '초' : columns.find(c => c.id === graph.xColumnId)?.unit,
+    yUnit: columns.find(c => c.id === graph.yColumnId)?.unit,
     xLabel: columnLabel(columns.find(c => c.id === graph.xColumnId)),
     yLabel: columnLabel(columns.find(c => c.id === graph.yColumnId)) };
 }

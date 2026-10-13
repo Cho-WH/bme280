@@ -1,5 +1,6 @@
 import { matchesClockTime } from './clock-time.js';
 import { SOURCE_COLUMNS } from '../data/contracts.js';
+import { scopeMembership } from './scope.js';
 
 // Shared table projection. Display order never changes sample identity or analysis inputs.
 export const TABLE_COLUMNS = SOURCE_COLUMNS;
@@ -27,6 +28,8 @@ export function normalizeFilter(filter, calculatedColumns = []) {
       || [r.min, r.max].some(v => v != null && !Number.isFinite(v))
       || (r.min != null && r.max != null && r.min > r.max)))) throw new Error('필터의 숫자와 범위를 확인하세요.');
   if (f.reason != null && typeof f.reason !== 'string') throw new Error('제외 사유 필터를 확인하세요.');
+  if (f.analysisStatus != null && (!Array.isArray(f.analysisStatus) || f.analysisStatus.some(s => !['included', 'excluded', 'outside'].includes(s))))
+    throw new Error('분석 상태 필터를 확인하세요.');
   if (f.clockTime != null && (typeof f.clockTime !== 'object' || Array.isArray(f.clockTime)
     || [f.clockTime.min, f.clockTime.max].some(v => v != null && (!Number.isInteger(v) || v < 0 || v >= 86400000))))
     throw new Error('시각 필터의 시·분·초를 확인하세요.');
@@ -38,7 +41,7 @@ export function columnRanges(filter) {
     ? { [filter.columnId]: { min: filter.min ?? null, max: filter.max ?? null } } : {}), ...filter.ranges };
 }
 export function columnFilterActive(filter, columnId) {
-  if (columnId === 'usage') return (filter.usage ?? 'all') !== 'all';
+  if (columnId === 'usage') return (filter.usage ?? 'all') !== 'all' || (filter.analysisStatus != null && filter.analysisStatus.length !== 3);
   if (columnId === 'note') return (filter.validity ?? 'all') !== 'all' || !!filter.reason;
   if (columnId === 'receivedAt' && (filter.clockTime?.min != null || filter.clockTime?.max != null)) return true;
   const range = columnRanges(filter)[columnId];
@@ -46,11 +49,13 @@ export function columnFilterActive(filter, columnId) {
 }
 
 export function tableRows(samples, state) {
+  const scope = scopeMembership(state);
   const exclusions = new Map(state.exclusions.map(item => [item.sampleId, item.reason]));
   const f = state.table.filter;
   const ranges = Object.entries(columnRanges(f));
   const rows = samples.filter(s => {
     if (s.sampleId > state.tableLastSampleId) return false;
+    if (f.analysisStatus && !f.analysisStatus.includes(scope.status(s.sampleId))) return false;
     if (f.usage === 'none' || (f.usage === 'excluded' && !exclusions.has(s.sampleId))
       || (f.usage === 'included' && exclusions.has(s.sampleId))) return false;
     if (f.validity === 'none') return false;
@@ -70,7 +75,7 @@ export function tableRows(samples, state) {
 }
 
 export function analysisScope(samples, state) {
-  const candidates = new Set(state.appliedIds), excluded = new Set(state.exclusions.map(item => item.sampleId));
+  const { candidates, excluded } = scopeMembership(state);
   const rows = samples.filter(s => candidates.has(s.sampleId));
   const included = rows.filter(s => !excluded.has(s.sampleId));
   return { candidateCount: rows.length, includedCount: included.length, excludedCount: rows.length - included.length,

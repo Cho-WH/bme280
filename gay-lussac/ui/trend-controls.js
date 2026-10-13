@@ -1,28 +1,25 @@
-import { trendReasons as reasons, trendSummary } from './trend-summary.js';
+import { trendReasons, trendSummary } from './trend-summary.js';
 
-// Small graph controls only. The Workspace owns activation, calculation and history.
-export function createTrendControls(root, { getWorkspace, act, signal }) {
-  const $ = id => root.querySelector('#' + id), toggle = $('trend-enabled');
-  toggle.addEventListener('change', () => act(() => getWorkspace().setTrendEnabled(toggle.checked)), { signal });
-  for (const button of root.querySelectorAll('[data-graph-view]'))
-    button.addEventListener('click', () => act(() => getWorkspace().setGraphView(button.dataset.graphView)), { signal });
+export function createTrendControls(root, { getWorkspace, getContext, act, signal }) {
+  const $ = id => root.querySelector('#' + id), toggle = $('trend-enabled'), extended = $('trend-extended');
+  toggle.addEventListener('change', () => act(() => getWorkspace().setTrendEnabled(toggle.checked, getContext())), { signal });
+  extended.addEventListener('change', () => act(() => getWorkspace().setGraphView(extended.checked ? 'extended' : 'measured', getContext())), { signal });
   return {
     render(model, writable) {
-      const regression = model?.regression, enabled = regression?.enabled === true, fit = enabled ? regression.result : null;
-      const extended = model?.view === 'extended', canExtend = fit?.xIntercept != null;
+      const enabled = model?.regression?.enabled === true, fit = enabled ? model.regression.result : null;
       toggle.checked = enabled; toggle.disabled = !writable || !model;
-      // Reserve the controls' space even when a narrow layout wraps to two rows.
-      $('trend-views').hidden = false; $('trend-views').style.visibility = enabled ? 'visible' : 'hidden';
-      for (const button of root.querySelectorAll('[data-graph-view]')) {
-        button.setAttribute('aria-pressed', String(button.dataset.graphView === (extended ? 'extended' : 'measured')));
-        button.disabled = !writable || (button.dataset.graphView === 'extended' && !canExtend);
-        button.title = button.dataset.graphView === 'extended' && !canExtend ? reasons[fit?.xInterceptReason] ?? '' : '';
-      }
-      const equation = $('trend-equation'), detail = $('trend-detail');
-      equation.textContent = ''; detail.textContent = ''; equation.title = ''; detail.title = '';
+      extended.checked = enabled && model?.view === 'extended'; extended.disabled = !writable || !enabled || fit?.xIntercept == null;
+      extended.title = !enabled ? '추세선을 먼저 켜 주세요.' : fit?.xIntercept == null ? trendReasons[fit?.reason ?? fit?.xInterceptReason] ?? 'x절편을 계산할 수 없어요.' : '';
       const summary = trendSummary(model);
-      equation.textContent = summary.equation; detail.textContent = summary.detail;
-      equation.title = equation.textContent; detail.title = detail.textContent;
+      $('trend-empty').hidden = enabled && !fit?.reason;
+      $('trend-empty').textContent = enabled ? summary.equation : '추세선을 켜면 두 물리량의 관계를 수치로 살펴볼 수 있어요.';
+      $('trend-metrics').hidden = !summary.metrics.length;
+      $('trend-metrics').replaceChildren(...summary.metrics.map(item => {
+        const card = document.createElement('div'), label = document.createElement('span'), value = document.createElement('strong');
+        label.textContent = item.label; value.textContent = item.value; card.append(label, value); return card;
+      }));
+      $('trend-details').hidden = !enabled || Boolean(fit?.reason);
+      $('trend-equation').textContent = summary.equation; $('trend-detail').textContent = summary.detail;
     },
   };
 }

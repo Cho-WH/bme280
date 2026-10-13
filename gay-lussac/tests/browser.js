@@ -196,6 +196,18 @@ document.getElementById('test').addEventListener('click', async () => {
     jsonLink.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(buildExperimentJson(imported));
     document.getElementById('export-preview').append(jsonLink, preview);
     report('통과: 화면 밖 고정 크기 PNG 생성·축/추세선/회귀식/R² 포함 (아래 이미지 확인)');
+    const rangeWork = createWorkspace({ store: csvStore }), rangeSamples = rangeWork.getSamples();
+    const selectedTime = rangeSamples[0].receivedAt;
+    rangeWork.applyTimeRange({ startAt: selectedTime, endAt: selectedTime });
+    rangeWork.setTrendEnabled(true, 'interpretation');
+    const rangeState = rangeWork.getState(); await csvStore.flush();
+    const rangeRead = await repo.readSnapshot(csvStore.getState().id);
+    check(JSON.stringify(rangeRead.workspace.analysisRange) === JSON.stringify(rangeState.analysisRange)
+      && rangeRead.workspace.interpretation.enabled === true, '시간 구간·결과 해석 설정 저장 실패');
+    const rangeJson = parseExperimentJson(buildExperimentJson(rangeRead));
+    check(rangeJson.workspace.appliedIds.length === rangeState.appliedIds.length
+      && rangeWork.getGraphData('interpretation').xColumnId === 'temperatureC', '고정 축·JSON 구간 보존 실패');
+    report('통과: 시간 구간·고정 축 결과 해석 설정의 실제 DB 저장·JSON 복원');
   } catch (error) { report(`실패: ${error.message}`); }
   finally { store?.dispose(); reader?.dispose(); reopened?.dispose(); csvStore?.dispose(); repo.close(); }
 });
@@ -205,17 +217,20 @@ document.getElementById('fixture').addEventListener('click', async () => {
   const repo = createRepository(); let store;
   try {
     let ms = 0;
+    const count = document.getElementById('fixture-size').valueAsNumber;
+    if (!Number.isSafeInteger(count) || count < 40 || count > 20000) throw new Error('40~20,000 사이의 자료 수를 입력하세요.');
+    const cutoff = (count - 20) * 100;
     store = await openRunStore({ repository: repo, create: true, program: PROGRAM, source: 'replay',
-      name: '재생 검증 자료 · M2 복원 확인', timers });
+      name: '재생 검증 자료 · ' + count.toLocaleString() + '개', timers });
     const session = createSession({ store, clock: { utc: () => at + ms, mono: () => ms } });
     session.markEvent('placement');
-    for (ms = 0; ms < 62000; ms += 100) {
+    for (ms = 0; ms < cutoff; ms += 100) {
       session.acceptInput(reading(ms));
       if (ms === 1000) session.markEvent('heating-start');
       if (ms === 30000) session.markEvent('water-added');
     }
     session.disconnected();
-    for (ms = 68000; ms < 70000; ms += 100) session.acceptInput({ ...reading(ms), attemptId: 2 });
+    for (ms = cutoff + 6000; ms < cutoff + 8000; ms += 100) session.acceptInput({ ...reading(ms), attemptId: 2 });
     await store.flush();
     const link = document.createElement('a');
     link.href = `../#/analysis?run=${store.getState().id}`; link.textContent = '앱에서 미완료 재생 자료 열기';

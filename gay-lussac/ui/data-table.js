@@ -3,17 +3,19 @@ import { clockTime, formatClockTime } from '../analysis/clock-time.js';
 import { formatCalculated } from '../analysis/calculations.js';
 import { createTableHeader } from './table-header.js';
 import { tableColumns } from './table-columns.js';
+import { statusLabels } from '../analysis/scope.js';
 
 const time = value => formatClockTime(clockTime(value)) || '—';
 const number = value => Number.isFinite(value) ? value.toFixed(2) : '—';
 
 // Reuses the M2 virtual table: full scroll range, only nearby rows in the DOM.
-export function createDataTable({ body, scroller, status, onToggle, onSort }) {
+export function createDataTable({ body, scroller, status, onToggle, onSort, onInspect = () => {} }) {
   const rowHeight = 32, overscan = 8, table = body.closest('table');
   table.style.setProperty('--raw-row-height', `${rowHeight}px`);
   const events = new AbortController(), { signal } = events;
   let rows = [], selected = new Set(), exclusions = new Map(), writable = false, columns = [], compact = false;
   let frame = null, renderedStart = -1, renderedEnd = -1, viewKey = null;
+  let applied = null, focusedId = null;
   const header = createTableHeader({ table, onSort, signal });
   function spacer(fragment, count) {
     if (!count) return;
@@ -36,14 +38,16 @@ export function createDataTable({ body, scroller, status, onToggle, onSort }) {
       const sample = rows[index], id = sample.sampleId, excluded = exclusions.has(id);
       const row = document.createElement('tr'); row.className = 'sample-row'; row.dataset.sampleId = id;
       row.dataset.selected = selected.has(id);
-      row.dataset.usage = excluded ? 'excluded' : 'included';
+      const usageState = applied && !applied.has(id) ? 'outside' : excluded ? 'excluded' : 'included';
+      row.dataset.usage = usageState; row.dataset.focused = id === focusedId;
       row.setAttribute('aria-rowindex', String(index + 2));
+      row.tabIndex = 0; row.setAttribute('aria-label', `자료 ${id}, ${statusLabels[usageState]}. Enter로 정보 보기`);
       const cell = row.insertCell(), checkbox = document.createElement('input');
       checkbox.type = 'checkbox'; checkbox.checked = selected.has(id); checkbox.disabled = !writable;
       checkbox.dataset.select = id; checkbox.setAttribute('aria-label', `자료 ${id} 선택`); cell.append(checkbox);
       const reason = exclusions.get(id);
-      const usage = excluded ? '제외' : '사용';
-      const note = `${hasInvalidValue(sample) ? '값 확인 필요' : '정상 범위'}${reason ? ` · ${reason}` : ''}`;
+      const usage = statusLabels[usageState];
+      const note = `${hasInvalidValue(sample) ? '값 확인 필요' : '정상 범위'}${excluded ? ' · 제외 기록' : ''}${reason ? ` · ${reason}` : ''}`;
       function cellText(value) { const td = row.insertCell(); td.textContent = String(value); td.title = String(value); return td; }
       for (const c of columns) {
         if (c.editable || c.imported) {
@@ -87,10 +91,15 @@ export function createDataTable({ body, scroller, status, onToggle, onSort }) {
   body.addEventListener('click', event => {
     const checkbox = event.target.closest('[data-select]');
     if (checkbox) onToggle(Number(checkbox.dataset.select), { checked: checkbox.checked, extend: event.shiftKey });
+    else if (!event.target.closest('button, input')) { const row = event.target.closest('[data-sample-id]'); if (row) onInspect(Number(row.dataset.sampleId)); }
+  }, { signal });
+  body.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && event.target.matches('[data-sample-id]')) { event.preventDefault(); onInspect(Number(event.target.dataset.sampleId)); }
   }, { signal });
   const observer = new ResizeObserver(schedule); observer.observe(scroller);
   return {
-    render({ samples, selectedIds, excluded, sort, filter = {}, calculatedColumns = [], importedColumns = [], axisIds = null, canEdit, resetScroll = false }) {
+    render({ samples, selectedIds, excluded, appliedIds = null, focusedSampleId = null, sort, filter = {}, calculatedColumns = [], importedColumns = [], axisIds = null, canEdit, resetScroll = false }) {
+      applied = appliedIds ? new Set(appliedIds) : null; focusedId = focusedSampleId;
       compact = axisIds !== null; columns = tableColumns(calculatedColumns, axisIds, importedColumns);
       header.render({ columns, compact, sort, filter, canEdit });
       const nextViewKey = JSON.stringify({ sort, filter });

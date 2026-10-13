@@ -54,6 +54,7 @@ export function createCalculationEditor(root, { getWorkspace, render, signal }) 
       const rows = getWorkspace().previewColumn(definition(), prerequisites);
       for (const row of rows) {
         const tr = document.createElement('tr'); tr.insertCell().textContent = row.sampleId;
+        for (const input of row.inputs) tr.insertCell().textContent = input.reason || formatCalculated(input.value);
         tr.insertCell().textContent = row.reason || formatCalculated(row.value); body.append(tr);
       }
       form.querySelector('[data-empty]').hidden = rows.length > 0;
@@ -75,11 +76,11 @@ export function createCalculationEditor(root, { getWorkspace, render, signal }) 
       f.kind.value = operand.kind; f.column.value = operand.columnId ?? inputs[0].id; f.value.value = operand.value ?? '';
     }
     root.querySelector('#calculation-title').textContent = existing ? '계산 열 편집' : '계산 열 추가';
-    submit.textContent = existing ? '변경 적용' : '열 추가'; preview(); dialog.showModal();
+    submit.textContent = existing ? '변경 적용' : '열 만들기'; preview(); dialog.showModal();
     (existing ? name : fields[0].column).focus();
   }
   root.addEventListener('click', event => {
-    const add = event.target.closest('#add-calculation'), edit = event.target.closest('[data-calculation-menu]'), reason = event.target.closest('[data-reason]');
+    const add = event.target.closest('#add-calculation, [data-add-calculation]'), edit = event.target.closest('[data-calculation-menu]'), reason = event.target.closest('[data-reason]');
     const button = add || edit || reason;
     if (!button || button.disabled) return;
     if (anchor === button && menu.matches(':popover-open')) { closeMenu(); return; }
@@ -108,7 +109,7 @@ export function createCalculationEditor(root, { getWorkspace, render, signal }) 
   form.addEventListener('change', changed, { signal });
   form.addEventListener('submit', event => {
     event.preventDefault();
-    try { getWorkspace().saveColumn(definition(), prerequisites); dialog.close(); render(); }
+    try { getWorkspace().saveColumn(definition(), prerequisites); dialog.close(); render({ revealColumnId: draftId }); }
     catch (failure) { error.textContent = failure.message; }
   }, { signal });
   form.querySelector('[data-cancel]').addEventListener('click', () => dialog.close(), { signal });
