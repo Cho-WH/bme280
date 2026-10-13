@@ -52,6 +52,7 @@ async function fixture(extra = {}) {
 
 test('Workspace persists through RunStore and reopens the same scope while later measurements remain new', async () => {
   const f = await fixture();
+  assert.equal(f.store.getLatestSample(), null);
   [0, 500, 1000].forEach(ms => f.accept(ms));
   const workspace = createWorkspace({ store: f.store });
   workspace.setSelection([1, 2]); workspace.applyScope('selection'); workspace.exclude([2], '이동');
@@ -61,6 +62,10 @@ test('Workspace persists through RunStore and reopens the same scope while later
   const reopened = createWorkspace({ store: restored });
   assert.deepEqual(reopened.getState(), workspace.getState());
   assert.equal(restored.getState().sampleCount, 4);
+  const lastReading = restored.getLatestSample();
+  assert.equal(lastReading.sampleId, 4);
+  lastReading.temperatureC = -100;
+  assert.equal(restored.getLatestSample().temperatureC, 25, 'display reads must not mutate stored measurements');
   assert.equal(reopened.getLoadedCount(), 3);
   assert.equal(reopened.getSummary().includedCount, 1);
   reopened.showNewData();

@@ -25,7 +25,7 @@ export function withEventNote(event, note) {
 
 // Stable source IDs are shared by table projection and calculation validation.
 export const SOURCE_COLUMNS = Object.freeze([
-  { id: 'sampleId', name: 'ID', unit: null },
+  { id: 'sampleId', name: '번호', unit: null },
   { id: 'temperatureC', name: '온도', unit: '℃', calculable: true },
   { id: 'pressureHpa', name: '압력', unit: 'hPa', calculable: true },
   { id: 'receivedAt', name: '수신 시각', unit: null },
@@ -47,12 +47,6 @@ export function validateImportedColumns(columns = []) {
 
 export const graphColumns = (calculated, imported = []) => [...SOURCE_COLUMNS.filter(c => c.id !== 'sampleId'), ...imported, ...calculated];
 export const DEFAULT_GRAPH = Object.freeze({ xColumnId: 'temperatureC', yColumnId: 'pressureHpa', type: 'scatter', connectGaps: false, view: 'measured' });
-export function validateInterpretation(value) {
-  if (value == null) return { enabled: false, view: 'measured' };
-  if (typeof value.enabled !== 'boolean' || !['measured', 'extended'].includes(value.view) || (!value.enabled && value.view === 'extended'))
-    throw new Error('결과 해석의 추세선 설정을 확인하세요.');
-  return { enabled: value.enabled, view: value.view };
-}
 export function validateGraph(graph, calculated = [], imported = []) {
   if (graph == null) return null;
   const ids = new Set(graphColumns(calculated, imported).map(c => c.id));

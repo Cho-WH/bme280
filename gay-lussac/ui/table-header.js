@@ -13,7 +13,7 @@ export function createTableHeader({ table, onSort, signal }) {
     button.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 4h18l-7 8v7l-4 2v-9z"/></svg>';
     return button;
   }
-  function appendColumn(id, label, sortable = false, editable = false) {
+  function appendColumn(id, label, sortable = false, editable = false, compact = false) {
     const th = document.createElement('th'); th.scope = 'col';
     const controls = document.createElement('div'); controls.className = 'column-header';
     if (sortable) {
@@ -23,10 +23,17 @@ export function createTableHeader({ table, onSort, signal }) {
     } else {
       controls.append(document.createTextNode(label));
     }
-    controls.append(filterButton(id, label));
+    if (id === 'usage') {
+      const help = document.createElement('button'); help.type = 'button';
+      help.className = 'help-trigger'; help.dataset.actionHelp = 'tableSelection'; help.textContent = '?';
+      help.setAttribute('aria-label', '분석 여부와 자료 체크 도움말'); controls.append(help);
+    }
+    if (!compact) controls.append(filterButton(id, label));
     if (editable) {
       const button = document.createElement('button'); button.type = 'button'; button.dataset.calculationMenu = id;
-      button.className = 'calculation-menu-button'; button.textContent = '⋯'; button.setAttribute('aria-label', label + ' 열 메뉴');
+      button.className = 'calculation-menu-button'; button.title = '계산 열 편집';
+      button.innerHTML = '<span class="calculation-edit-icon" aria-hidden="true"></span>';
+      button.setAttribute('aria-label', label + ' 계산 열 편집');
       button.setAttribute('aria-expanded', 'false'); button.setAttribute('aria-controls', 'calculation-menu');
       controls.append(button);
     }
@@ -36,7 +43,7 @@ export function createTableHeader({ table, onSort, signal }) {
     while (header.cells.length > 1) header.lastElementChild.remove();
     const widths = [32];
     for (const c of columns) {
-      appendColumn(c.id, c.label, c.sortable, c.editable); widths.push(c.width);
+      appendColumn(c.id, c.label, c.sortable, c.editable, compact); widths.push(c.width);
     }
     // Keep the existing action node and its listeners when the compact view hides it.
     header.append(addColumnHeader); addColumnHeader.hidden = compact;

@@ -77,7 +77,8 @@ test('imported columns share filters, sort, calculations, graph, undo and JSON r
   assert.deepEqual(extra.map(c => c.id), ['data-humidity', 'calc-double']);
   assert.equal(extra[0].editable, undefined);
   const compact = tableColumns(w.getState().calculatedColumns, ['data-humidity', 'calc-double'], w.getImportedColumns());
-  assert.equal(compact.find(c => c.id === 'data-humidity').width, extra[0].width);
+  assert.equal(extra[0].width, full.find(c => c.id === 'temperatureC').width);
+  assert.equal(compact.find(c => c.id === 'data-humidity').width, compact.find(c => c.id === 'calc-double').width);
   const restored = parseExperimentJson(buildExperimentJson(s)), reopened = open(restored);
   assert.deepEqual(reopened.getGraphData(), w.getGraphData());
   assert.deepEqual(reopened.getRows(), w.getRows());

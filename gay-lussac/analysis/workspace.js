@@ -1,14 +1,15 @@
 import { DEFAULT_FILTER, TABLE_COLUMNS, tableRows, analysisScope, normalizeFilter, columnRanges } from './table-data.js';
-import { validateCalculatedColumns, validateGraph, validateImportedColumns, DEFAULT_GRAPH, validateInterpretation } from '../data/contracts.js';
+import { validateCalculatedColumns, validateGraph, validateImportedColumns, DEFAULT_GRAPH } from '../data/contracts.js';
 import { rangeSampleIds, validateAnalysisRange, timeBounds } from './scope.js';
 import { createCalculator, presetColumns } from './calculations.js';
 import { graphData } from './graph-data.js';
 import { fitGraph, trendGeometry } from './regression.js';
+import { captureEvidence, evidenceKey, evidenceGraph, validateAnswers, validateReflection } from './reflection.js';
 
 const copy = structuredClone;
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const orderedIds = ids => [...new Set(ids)].sort((a, b) => a - b);
-const historyState = state => ({ appliedIds: state.appliedIds, appliedScope: state.appliedScope, analysisRange: state.analysisRange, interpretation: state.interpretation, exclusions: state.exclusions, calculatedColumns: state.calculatedColumns, graph: state.graph,
+const historyState = state => ({ appliedIds: state.appliedIds, appliedScope: state.appliedScope, analysisRange: state.analysisRange, exclusions: state.exclusions, calculatedColumns: state.calculatedColumns, graph: state.graph,
   regression: { enabled: state.regression?.enabled === true } });
 const inputState = state => {
   const applied = new Set(state.appliedIds);
@@ -45,14 +46,15 @@ export function createWorkspace({ store }) {
   state.graph = validateGraph(state.graph, state.calculatedColumns, imported);
   state.regression = { enabled: state.regression?.enabled === true };
   state.analysisRange = validateAnalysisRange(state.analysisRange, samples, state);
-  state.interpretation = validateInterpretation(state.interpretation);
+  state.reflection = validateReflection(state.reflection, samples, imported);
+  delete state.interpretation;
   state.table.filter = normalizeFilter(state.table.filter, [...imported, ...state.calculatedColumns]);
   if (state.table.sort.columnId === 'segmentId') state.table.sort = { columnId: 'sampleId', direction: 'asc' };
   const undo = [], redo = [];
   let loadedCount = samples.filter(s => s.sampleId <= state.tableLastSampleId).length;
   let anchorId = null;
   let projection = null;
-  let interpretationCache = null;
+  let reflectionCache = null;
   function projected(next = state, source = samples) {
     const key = JSON.stringify(next.calculatedColumns);
     if (projection?.samples !== source || projection.key !== key) {
@@ -254,27 +256,33 @@ export function createWorkspace({ store }) {
     anchorId = null;
     from.pop(); to.push(item); return true;
   }
-  function getGraphData(context = 'relationship') {
-    const interpretation = context === 'interpretation';
-    const graph = interpretation ? { ...DEFAULT_GRAPH, view: state.interpretation.view } : state.graph ?? DEFAULT_GRAPH;
-    const model = graphData(projected(), { ...state, graph }, imported);
-    let regression = state.regression;
-    if (interpretation) {
-      const key = JSON.stringify([state.appliedIds, state.exclusions.map(e => e.sampleId), state.interpretation.enabled]);
-      if (interpretationCache?.key !== key || interpretationCache.samples !== samples)
-        interpretationCache = { key, samples, regression: state.interpretation.enabled ? fitGraph(model, state.analysisInputRevision) : { enabled: false } };
-      regression = { ...interpretationCache.regression, ...(interpretationCache.regression.enabled ? { inputRevision: state.analysisInputRevision } : {}) };
-    }
+  function getGraphData() {
+    const graph = state.graph ?? DEFAULT_GRAPH;
+    const model = graphData(projected(), { ...state, graph }, imported), regression = state.regression;
     const trend = trendGeometry(regression, graph.view === 'extended');
     return { ...model, view: graph.view === 'extended' && !trend.intercept.length ? 'measured' : graph.view,
       regression: copy(regression), trend };
   }
+  function getReflectionModel() {
+    const evidence = state.reflection.evidence, key = evidenceKey(evidence);
+    if (!evidence) return null;
+    if (reflectionCache?.key !== key) reflectionCache = { key, model: evidenceGraph(samples, evidence, imported) };
+    return reflectionCache.model;
+  }
+  function captureReflection() {
+    assertWriter();
+    if (!getGraphData().points.length) throw new Error('그래프에 표시할 자료를 먼저 확인해 주세요.');
+    return commit({ ...copy(state), reflection: { ...copy(state.reflection), evidence: captureEvidence(state) } });
+  }
+
   return {
     getState: () => copy(state), isWritable: () => writable, getLoadedCount: () => loadedCount,
     getRows: () => rowsFor(),
     getImportedColumns: () => copy(imported),
     getSamples: () => projected().filter(s => s.sampleId <= state.tableLastSampleId),
-    getGraphData,
+    getGraphData, getReflectionModel, captureReflection,
+    reflectionChanged: () => Boolean(state.reflection.evidence) && evidenceKey(state.reflection.evidence) !== evidenceKey(captureEvidence(state)),
+    setReflectionAnswers(answers) { return commit({ ...copy(state), reflection: { ...copy(state.reflection), answers: validateAnswers(answers) } }); },
     getSummary() {
       const rows = rowsFor(), selected = new Set(state.selectedIds);
       return { ...analysisScope(samples, state), loadedCount,
@@ -284,18 +292,11 @@ export function createWorkspace({ store }) {
     setSelection, selectRange, toggleSelection, applyScope, applyTimeRange, exclude, restore, setFilter, setSort, showNewData,
     saveColumn, deleteColumn, columnUsers, previewColumn,
     setGraph(graph) { return commit({ ...copy(state), graph: validateGraph({ ...graph, view: state.graph?.view }, state.calculatedColumns, imported) }, state.graph ? '그래프 변경' : '그래프 만들기'); },
-    setTrendEnabled(enabled, context = 'relationship') {
+    setTrendEnabled(enabled) {
       if (typeof enabled !== 'boolean') throw new Error('추세선 표시 상태를 확인하세요.');
-      if (context === 'interpretation') return commit({ ...copy(state), interpretation: { enabled,
-        view: enabled ? state.interpretation.view : 'measured' } }, '결과 해석 추세선 변경');
       return commit({ ...copy(state), graph: copy(state.graph ?? DEFAULT_GRAPH), regression: enabled === state.regression.enabled ? copy(state.regression) : { enabled } }, '추세선 표시 변경');
     },
-    setGraphView(view, context = 'relationship') {
-      if (context === 'interpretation') {
-        if (!['measured', 'extended'].includes(view)) throw new Error('그래프 보기 범위를 확인하세요.');
-        if (view === 'extended' && !trendGeometry(getGraphData(context).regression, true).intercept.length) throw new Error('추세선을 켜고 계산 가능한 x절편을 확인하세요.');
-        return commit({ ...copy(state), interpretation: { ...state.interpretation, view } }, '결과 해석 직선 연장 변경');
-      }
+    setGraphView(view) {
       if (!state.graph || !['measured', 'extended'].includes(view)) throw new Error('그래프 보기 범위를 확인하세요.');
       if (view === 'extended' && !trendGeometry(state.regression, true).intercept.length) throw new Error('현재 추세선의 x절편을 계산할 수 없어요.');
       return commit({ ...copy(state), graph: { ...state.graph, view } }, '그래프 보기 범위 변경');

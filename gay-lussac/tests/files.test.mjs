@@ -46,20 +46,28 @@ test('analysis CSV follows applied use/exclude, ignoring checks/filter and unloa
   assert.deepEqual(snapshot, before);
 });
 
-test('time range and independent interpretation survive JSON while incompatible metadata is rejected', () => {
+test('time range and frozen reflection survive JSON; invalid evidence is rejected before import', () => {
   const { snapshot, work } = fixture();
   work.applyTimeRange({ startAt: snapshot.samples[0].receivedAt, endAt: snapshot.samples[3].receivedAt });
-  work.setTrendEnabled(true, 'interpretation'); work.setGraphView('extended', 'interpretation');
+  work.setGraph({ xColumnId: 'temperatureC', yColumnId: 'calc-divide', type: 'scatter' });
+  work.captureReflection(); work.setReflectionAnswers({ observation: '<b>내 관찰</b>', reasoning: '첫 줄\n다음 줄', limitations: '' });
+  const evidence = structuredClone(work.getReflectionModel());
+  work.setGraph({ xColumnId: 'temperatureC', yColumnId: 'pressureHpa', type: 'scatter' }); work.deleteColumn('calc-divide');
   const restored = parseExperimentJson(buildExperimentJson(snapshot));
-  assert.deepEqual(restored.workspace.analysisRange, work.getState().analysisRange);
-  assert.deepEqual(restored.workspace.interpretation, { enabled: true, view: 'extended' });
+  assert.deepEqual(restored.workspace.reflection, work.getState().reflection);
+  const reopened = createWorkspace({ store: { getSnapshot: () => restored, getState: () => ({ writable: false }) } });
+  assert.deepEqual(reopened.getReflectionModel(), evidence);
   assert.deepEqual(analysisExportInfo(restored).rows.map(s => s.sampleId), [1, 3, 4]);
-  const bad = JSON.parse(buildExperimentJson(snapshot)); bad.snapshot.workspace.analysisRange.endAt -= 1000;
-  assert.throws(() => parseExperimentJson(JSON.stringify(bad)), /일치하지/);
-  bad.snapshot.workspace.analysisRange = null; bad.snapshot.workspace.interpretation.enabled = false;
-  assert.throws(() => parseExperimentJson(JSON.stringify(bad)), /추세선 설정/);
-  delete bad.snapshot.workspace.interpretation; delete bad.snapshot.workspace.analysisRange;
-  assert.equal(parseExperimentJson(JSON.stringify(bad)).workspace.interpretation.enabled, false);
+  const bad = change => { const value = structuredClone(snapshot); change(value.workspace); return () => parseExperimentJson(buildExperimentJson(value)); };
+  assert.throws(bad(w => w.analysisRange.endAt -= 1000), /일치하지/);
+  assert.throws(bad(w => w.reflection.evidence.appliedIds.push(999)), /자료 ID/);
+  assert.throws(bad(w => w.reflection.evidence.exclusions.push({ sampleId: 5, reason: '' })), /제외/);
+  assert.throws(bad(w => w.reflection.evidence.graph.xColumnId = 'gone'), /X축/);
+  assert.throws(bad(w => w.reflection.evidence.analysisRange.endAt -= 1000), /일치하지/);
+  assert.throws(bad(w => w.reflection.answers.reasoning = 'x'.repeat(1201)), /1200/);
+  assert.throws(bad(w => w.reflection.evidence.calculatedColumns[0].lhs.columnId = 'gone'), /A와 B/);
+  delete snapshot.workspace.reflection; snapshot.workspace.interpretation = { enabled: true, view: 'extended' };
+  assert.equal(parseExperimentJson(buildExperimentJson(snapshot)).workspace.reflection.evidence, null);
 });
 
 test('JSON round trip preserves full data, pending samples, definitions and view; recomputes enabled trend on opening', () => {

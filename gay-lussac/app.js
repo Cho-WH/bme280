@@ -15,8 +15,11 @@ import { renderEvents, createEventNoteDialog } from './ui/run-view.js';
 import { createAnalysisView } from './ui/analysis-view.js';
 import { createAdditionalDialog } from './ui/additional-dialog.js';
 import { createGuideView } from './ui/guide-view.js';
+import { createActionHelp } from './ui/action-help.js';
+import { actionHelpMessages } from './ui/action-help-content.js';
 
 const $ = (id) => document.getElementById(id);
+const actionHelp = createActionHelp(document.body, { messages: actionHelpMessages });
 const transport = createTransport();
 let monitor = createReceptionMonitor();
 const repository = createRepository({ onUnavailable: storageUnavailable });
@@ -45,7 +48,7 @@ const fileControls = createFileControls({ getSnapshot: () => runStore?.getSnapsh
   },
 });
 const additionalDialog = createAdditionalDialog($('additional-dialog'), confirmation => {
-  if (!canAddMeasurements()) throw new Error('저장 완료와 작성 권한을 확인한 뒤 다시 시도해 주세요.');
+  if (!canAddMeasurements()) throw new Error('자료가 모두 저장되었는지 확인해 주세요. 다른 탭에서 같은 실험을 열었다면 닫고 다시 시도하세요.');
   session ??= createSession({ store: runStore, monitor });
   session.startAdditional(confirmation);
   stepIndex = STEPS.findIndex(step => step.id === 'placement');
@@ -70,8 +73,6 @@ const guideView = createGuideView({ root: document.querySelector('[data-screen="
   onRestore() { viewer.restoreStep(); },
 });
 const viewer = createViewerAdapter($('guide-frame'), state => guideView.setViewerState(state));
-$('program-name').textContent = PROGRAM.fileName;
-$('program-version').textContent = `${PROGRAM.version} · 실험 프로그램`;
 
 function renderProgram(next) {
   programState = next;
@@ -129,11 +130,23 @@ function renderReadings() {
   const ready = fresh && snapshot.reception.ready;
   $('reception-status').textContent = fresh ? '새 값 수신 중' : snapshot.latest ? '새 값 없음' : '값 대기';
   $('reception-status').dataset.active = fresh;
-  $('live-state').textContent = fresh ? '새 값이 들어오고 있어요' : snapshot.latest ? '새 값 수신을 기다려요' : '새 값을 기다려요';
-  $('last-received').textContent = snapshot.latest
-    ? `마지막 수신 ${new Date(snapshot.latest.receivedAt).toLocaleTimeString('ko-KR')} · ${Math.max(0, Math.floor((now - snapshot.latest.monotonicAt) / 1000))}초 전`
-    : '아직 받은 값이 없습니다.';
-  $('reading-problem').textContent = snapshot.problem;
+  const completed = runStore?.getState().runStatus === 'complete';
+  const reading = completed ? runStore.getLatestSample() : snapshot.latest;
+  const problem = completed ? '' : snapshot.problem;
+  $('live-state').textContent = completed ? '측정 완료' : fresh ? '수신 중' : reading ? '새 값 기다리는 중' : '수신 대기';
+  $('measurement-reception').dataset.state = completed ? 'complete' : problem ? 'problem' : fresh ? 'receiving' : 'waiting';
+  document.querySelector('.measurement-readings').setAttribute('aria-label', completed ? '마지막 측정값' : '현재 측정값');
+  $('last-received').textContent = completed
+    ? reading ? `마지막 측정값 · ${new Date(reading.receivedAt).toLocaleTimeString('ko-KR')}` : '기록된 측정값이 없어요'
+    : reading ? `마지막 수신 ${Math.max(0, Math.floor((now - reading.monotonicAt) / 1000))}초 전` : '아직 받은 값이 없어요';
+  $('last-received').hidden = !!problem;
+  $('reading-problem').textContent = problem;
+  $('reading-problem').hidden = !problem;
+  for (const [id, field] of [['measure-temperature', 'temperatureC'], ['measure-pressure', 'pressureHpa']]) {
+    const value = reading?.[field];
+    $(id).textContent = Number.isFinite(value) ? value.toFixed(2) : '—';
+    $(id).classList.toggle('stale', !!reading && ((!completed && !fresh) || reading.validity?.[field] !== 'valid'));
+  }
   for (const [selector, field, digits] of [['[data-temperature]', 'temperatureC', 2], ['[data-pressure]', 'pressureHpa', 2]]) {
     document.querySelectorAll(selector).forEach((element) => {
       element.textContent = snapshot.latest ? snapshot.latest[field].toFixed(digits) : '—';
@@ -145,8 +158,8 @@ function renderReadings() {
   const confirmed = fresh && check.ready;
   $('check-title').textContent = batteryStep && !snapshot.battery.armed ? 'USB 분리 후 확인을 시작하세요'
     : confirmed ? '새 값 수신을 확인했어요' : '새 값이 이어서 들어오는지 확인 중';
-  $('check-detail').textContent = snapshot.problem || (confirmed ? '1초 이상에 걸쳐 새 값 3개 이상을 받았어요.'
-    : `${check.count}개 수신 · ${(check.spanMs / 1000).toFixed(1)}초 경과`);
+  $('check-detail').textContent = snapshot.problem || (confirmed ? '새 온도·압력값이 계속 들어오고 있어요.'
+    : '새 측정값이 계속 들어오는지 확인하고 있어요.');
   if (runStore?.getState().runStatus === 'complete') {
     $('check-title').textContent = '측정을 마친 실험이에요';
     $('check-detail').textContent = '위의 추가 측정에서 조건을 확인하면 수신 확인을 다시 할 수 있어요.';
@@ -257,12 +270,12 @@ function renderStorage() {
   if ($('storage-status').textContent !== storageLabel) $('storage-status').textContent = storageLabel;
   $('storage-status').dataset.error = saved.status === 'error';
   $('storage-problem').hidden = saved.status !== 'error';
-  $('storage-detail').textContent = `미저장 측정값 ${saved.pendingSamples}개 · 조작·수신 기록 ${saved.pendingEvents}개. ${saved.error} 현재 탭의 자료와 메모는 유지되며 전체 실험 JSON으로 보관할 수 있어요.`;
+  $('storage-detail').textContent = `아직 저장되지 않은 측정값 ${saved.pendingSamples}개 · 조작·수신 기록 ${saved.pendingEvents}개가 있어요. 다시 저장을 눌러 주세요. 이 탭을 닫기 전에 이어하기용 파일로 자료와 메모를 보관할 수도 있어요.`;
   $('temporary-analysis').hidden = session?.getState().state !== 'finishing';
   $('retry-save').disabled = saved.status === 'saving';
   if (screen === 'analysis') analysisView.updateStatus();
   if (screen === 'analysis' && session?.getState().state === 'finishing') {
-    $('analysis-message').textContent = '입력을 마감했어요. 남은 자료를 저장하거나 임시 자료로 분석을 선택해 주세요.';
+    $('analysis-message').textContent = '측정은 멈췄지만, 아직 저장되지 않은 자료가 있어요. 다시 저장하거나 임시 자료로 분석을 선택해 주세요.';
   }
 }
 function renderRecording(ready) {
@@ -277,13 +290,16 @@ function renderRecording(ready) {
   $('additional-measurement').disabled = !canAddMeasurements();
   $('additional-measurement').title = canConnectSource() ? '' : '실제 장치 기록은 새 실험에서 시작하세요.';
   $('run-name').textContent = saved.name;
-  $('run-summary').textContent = `${saved.sampleCount.toLocaleString()}개 기록 · ${saved.savedSampleId.toLocaleString()}개 저장 완료${!saved.writable ? ' · 다른 탭에서 작성 중이거나 작성 잠금을 사용할 수 없어요.' : ''}`;
+  const readOnlyReason = navigator.locks
+    ? '다른 탭에서 이 실험을 수정 중이에요. 그 탭을 닫고 다시 확인해 주세요.'
+    : '이 브라우저에서는 실험을 수정할 수 없어요. 최신 Chrome·Edge에서 열어 주세요.';
+  $('run-summary').textContent = `${saved.sampleCount.toLocaleString()}개 기록 · ${saved.savedSampleId.toLocaleString()}개 저장 완료${!saved.writable ? ' · ' + readOnlyReason : ''}`;
   $('download-menu-button').disabled = !!openingRun;
   $('new-run').disabled = !!openingRun || importingRun;
   $('resume-panel').hidden = !!session || saved.runStatus === 'complete';
   $('resume-message').textContent = saved.writable
     ? '마지막으로 저장된 미완료 기록을 열었어요. 이어 측정하거나 여기까지 분석할 수 있어요.'
-    : '이 실험은 읽기 전용이에요. 현재 기록을 보거나 CSV로 보관할 수 있어요. 작성 중인 탭을 닫은 뒤 권한을 다시 확인하세요.';
+    : '현재 기록을 보거나 파일로 저장할 수 있어요. ' + readOnlyReason;
   $('resume-run').disabled = $('analyze-unfinished').disabled = !saved.writable || !!openingRun;
   $('retry-lock').hidden = saved.writable;
   $('confirm-placement').hidden = !!live?.placed || !canRecord();
@@ -417,9 +433,11 @@ $('device-form').addEventListener('submit', (event) => {
   $('device-note').value = ''; $('device-form').hidden = true; renderReadings();
 });
 $('chart-range').addEventListener('change', () => { chartRange = $('chart-range').value; lastChartPaint = 0; renderReadings(); });
-window.addEventListener('hashchange', () => { void route(); });
+window.addEventListener('hashchange', () => { actionHelp.close(); void route(); });
 document.querySelector('.skip-link').addEventListener('click', (event) => { event.preventDefault(); $('main').focus(); });
-if (!transport.isSupported() || !isSecureContext) $('connection-help').textContent = '연결하려면 노트북 Chrome·Edge에서 HTTPS 또는 localhost 주소로 열어 주세요.';
+if (!transport.isSupported() || !isSecureContext) $('connection-help').textContent = !isSecureContext
+  ? '이 주소에서는 장치를 연결할 수 없어요. https로 시작하는 실험 주소를 열어 주세요.'
+  : '장치를 연결하려면 노트북의 최신 Chrome·Edge에서 열어 주세요.';
 renderConnection(connection);
 void listSavedRuns();
 void (async () => {
@@ -436,7 +454,7 @@ window.addEventListener('beforeunload', (event) => {
 });
 window.addEventListener('pagehide', () => {
   // A hidden screen doesn't end the connection; leaving the document does.
-  clearInterval(tick); fileControls.dispose(); guideView.dispose(); analysisView.dispose(); runStore?.dispose(); viewer.dispose(); chart?.dispose(); repository.close(); void transport.disconnect(); void programmer.dispose();
+  clearInterval(tick); actionHelp.dispose(); fileControls.dispose(); guideView.dispose(); analysisView.dispose(); runStore?.dispose(); viewer.dispose(); chart?.dispose(); repository.close(); void transport.disconnect(); void programmer.dispose();
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) void runStore?.flush().catch(() => {}); });
 window.addEventListener('pageshow', (event) => { if (event.persisted) location.reload(); });

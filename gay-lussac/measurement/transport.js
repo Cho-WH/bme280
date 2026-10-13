@@ -6,9 +6,9 @@ import { CONNECTION } from '../program-config.js';
 const errorMessage = (error) => ({
   NotFoundError: '장치 선택을 취소했거나 장치를 찾지 못했어요. 전원을 확인하고 다시 연결해 주세요.',
   NotAllowedError: 'Bluetooth 연결 권한을 허용한 뒤 다시 시도해 주세요.',
-  SecurityError: 'Chrome 또는 Edge에서 HTTPS나 localhost 주소로 열어 주세요.',
+  SecurityError: '이 화면에서는 장치를 연결할 수 없어요. Chrome·Edge에서 https로 시작하는 실험 주소를 열어 주세요.',
   NetworkError: '연결이 끊겼어요. 전원과 거리를 확인하고 다른 탭의 연결을 해제해 주세요.',
-}[error?.name] || error?.message || '장치에 연결하지 못했어요. 전원과 실험 프로그램을 확인해 주세요.');
+}[error?.name] || '장치에 연결하지 못했어요. 전원과 실험 프로그램을 확인해 주세요.');
 
 export function createTransport({ ble = bluetooth, clock = { utc: () => Date.now(), mono: () => performance.now() },
   timers = globalThis, config = CONNECTION } = {}) {

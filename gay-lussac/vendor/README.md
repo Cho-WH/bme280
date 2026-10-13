@@ -36,3 +36,5 @@ npm --prefix gay-lussac/dev/usb-library run build
 빌드 스크립트는 실제 번들에 들어간 의존성만 골라 원문 라이선스와 manifest를 생성하며, 검토하지 않은 의존성이 새로 들어오면 실패합니다.
 
 분석 도구줄의 되돌리기·다시 실행은 **Lucide 0.468.0**의 [undo-2](https://lucide.dev/icons/undo-2)·[redo-2](https://lucide.dev/icons/redo-2)를 사용합니다. 원본 path와 선 속성을 [로컬 SVG 심벌](lucide-history.svg)로 묶었습니다. [고정 버전 원본](https://github.com/lucide-icons/lucide/tree/0.468.0/icons), [ISC 라이선스](lucide-LICENSE), [출처·버전·SHA-256](lucide-history-manifest.json)을 보관하며 CDN이나 추가 런타임을 사용하지 않습니다.
+
+계산 열의 편집 버튼은 같은 **Lucide 0.468.0**의 [pencil 원본](https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/pencil.svg)을 [로컬 SVG](lucide-pencil.svg)로 보관하고 CSS 마스크로 표시합니다. [ISC 라이선스](lucide-LICENSE)를 따르며 SVG 원문은 변경하지 않았습니다. SHA-256: `7e1ca7a6f5c1eb949671df762f2baadd32f5bd841d43153c3a15279af7d78d0c`.

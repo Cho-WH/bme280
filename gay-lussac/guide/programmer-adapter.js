@@ -29,7 +29,9 @@ export function createProgrammer({ program, onState = () => {}, beforeFlash = as
   async function prepare() {
     if (disposed || source || preparation) return preparation;
     if (!supported()) {
-      emit({ status: 'unavailable', message: 'USB 설치는 노트북 Chrome·Edge의 HTTPS 또는 localhost 화면에서 사용할 수 있어요.' });
+      emit({ status: 'unavailable', message: globalThis.isSecureContext === false
+        ? '이 주소에서는 프로그램을 설치할 수 없어요. https로 시작하는 실험 주소를 열어 주세요.'
+        : 'USB로 프로그램을 설치하려면 노트북의 최신 Chrome·Edge에서 열어 주세요.' });
       return;
     }
     emit({ status: 'loading', message: '실험 프로그램을 준비하고 있어요.' });

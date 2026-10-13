@@ -1,0 +1,85 @@
+.help-action, .help-switch-row { display: inline-flex; align-items: center; gap: 4px; }
+.help-action:has(> [hidden]:first-child) { display: none; }
+.help-switch-row { display: flex; }
+.help-switch-row > .switch-row { flex: 1; min-width: 0; }
+
+/* Explicit specificity keeps shared and analysis button rules from enlarging help. */
+button.help-trigger.help-trigger[data-action-help] {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 26px;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  max-width: 26px;
+  padding: 0;
+  margin: 0;
+  gap: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  color: #57716d;
+  font: 600 12px/1 system-ui, sans-serif;
+  text-align: center;
+  vertical-align: middle;
+  cursor: help;
+  transform: none;
+  transition: color 120ms, background-color 120ms;
+}
+
+button.help-trigger.help-trigger[data-action-help]::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px solid #9aada7;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+button.help-trigger.help-trigger[data-action-help]:hover,
+button.help-trigger.help-trigger[data-action-help][aria-expanded=true] {
+  color: #185e64;
+  background: #e4efea;
+  border: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+button.help-trigger.help-trigger[data-action-help]:focus-visible {
+  outline: 3px solid #80bbbe;
+  outline-offset: 2px;
+}
+
+.action-help-popover[popover] {
+  position: fixed;
+  inset: auto;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(310px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  margin: 0;
+  padding: 11px 13px;
+  overflow: auto;
+  border: 1px solid #cbd9d2;
+  border-radius: 10px;
+  background: #fffef8;
+  color: #263f39;
+  box-shadow: 0 5px 18px #1a332924;
+  font: 400 13px/1.6 system-ui, sans-serif;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.help-trigger.help-trigger[data-action-help] { transition: none; }
+}
+
+@media print {
+  button.help-trigger.help-trigger[data-action-help],
+  .action-help-popover[popover] { display: none !important; }
+}

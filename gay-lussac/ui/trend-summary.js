@@ -15,12 +15,12 @@ const number = value => formatCalculated(Object.is(value, -0) ? 0 : value);
 export function trendSummary(model) {
   const regression = model?.regression, fit = regression?.enabled ? regression.result : null;
   if (!fit) return { equation: '', detail: '', metrics: [] };
-  if (fit.reason) return { equation: trendReasons[fit.reason], detail: `회귀 자료 ${fit.count}개`, metrics: [] };
+  if (fit.reason) return { equation: trendReasons[fit.reason], detail: `추세선에 사용한 자료 ${fit.count}개`, metrics: [] };
   const time = regression.timeOrigin !== null;
   const equation = `${model.yLabel} = ${number(fit.slope)} × ${time ? '경과 시간(초)' : model.xLabel} ${fit.intercept < 0 ? '−' : '+'} ${number(Math.abs(fit.intercept))}`;
   const slopeUnit = model.xUnit && model.yUnit ? `${model.yUnit}/${model.xUnit}` : '';
   const withUnit = (value, unit) => `${number(value)}${unit ? ' ' + unit : ''}`;
-  const items = [{ label: '회귀 자료', value: `${fit.count.toLocaleString()}개` },
+  const items = [{ label: '추세선에 사용한 자료', value: `${fit.count.toLocaleString()}개` },
     { label: '기울기', value: withUnit(fit.slope, slopeUnit) }, { label: 'y절편', value: withUnit(fit.intercept, model.yUnit) },
     { label: 'R²', value: fit.rSquared === null ? '—' : number(fit.rSquared) }];
   const metrics = items.map(item => `${item.label} ${item.value}`);

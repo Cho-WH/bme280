@@ -32,6 +32,7 @@ export function createDataTable({ body, scroller, status, onToggle, onSort, onIn
     if (start === renderedStart && end === renderedEnd) return;
     renderedStart = start; renderedEnd = end;
     const focused = body.contains(document.activeElement) ? document.activeElement.dataset.select : null;
+    const focusedRow = body.contains(document.activeElement) ? document.activeElement.dataset.sampleId : null;
     const fragment = document.createDocumentFragment();
     spacer(fragment, start);
     for (let index = start; index < end; index++) {
@@ -77,6 +78,7 @@ export function createDataTable({ body, scroller, status, onToggle, onSort, onIn
       cell.className = 'empty-cell'; cell.textContent = '표에 표시할 자료가 없어요.'; fragment.append(row);
     }
     body.replaceChildren(fragment);
+    if (focusedRow) body.querySelector(`[data-sample-id="${focusedRow}"]`)?.focus({ preventScroll: true });
     if (focused) body.querySelector(`[data-select="${focused}"]`)?.focus({ preventScroll: true });
   }
   function schedule() { frame ??= requestAnimationFrame(paint); }

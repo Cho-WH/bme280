@@ -3,20 +3,57 @@ import { clockTime, formatClockTime } from '../analysis/clock-time.js';
 import { formatCalculated } from '../analysis/calculations.js';
 import { trendSummary } from './trend-summary.js';
 
+// Keep axis lettering at its original size; only the plot bitmap stretches.
+function captureLayoutPreview(chart) {
+  const { canvas, chartArea: area, width, height } = chart;
+  const layer = document.createElement('div'), pieces = [];
+  layer.className = 'chart-layout-preview'; layer.setAttribute('aria-hidden', 'true');
+  layer.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none';
+  const ratioX = canvas.width / width, ratioY = canvas.height / height;
+  function piece(x, y, w, h, transform) {
+    if (w <= 0 || h <= 0) return;
+    const image = document.createElement('canvas');
+    image.width = Math.ceil(w * ratioX); image.height = Math.ceil(h * ratioY);
+    image.getContext('2d').drawImage(canvas, x * ratioX, y * ratioY, w * ratioX, h * ratioY, 0, 0, image.width, image.height);
+    image.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;transform-origin:0 0;will-change:transform`;
+    layer.append(image); pieces.push({ image, transform });
+  }
+  const plotWidth = area.right - area.left, plotBottom = Math.ceil(area.bottom + 1);
+  piece(0, 0, area.left, plotBottom, () => 'none');
+  piece(area.left, 0, plotWidth, plotBottom, delta => `scaleX(${Math.max(0, plotWidth + delta) / plotWidth})`);
+  const title = chart.options.scales.x.title;
+  const titleHeight = title.display ? globalThis.Chart.helpers.toFont(title.font).lineHeight
+    + globalThis.Chart.helpers.toPadding(title.padding).height : 0;
+  const titleTop = Math.max(plotBottom, height - titleHeight);
+  const ticks = chart.scales.x.ticks.map((_, index) => chart.scales.x.getPixelForTick(index));
+  for (const [index, x] of ticks.entries()) {
+    const left = index ? (ticks[index - 1] + x) / 2 : 0;
+    const right = index + 1 < ticks.length ? (x + ticks[index + 1]) / 2 : width;
+    piece(left, plotBottom, right - left, titleTop - plotBottom,
+      delta => `translateX(${(x - area.left) / plotWidth * delta}px)`);
+  }
+  piece(0, titleTop, width, height - titleTop, delta => `translateX(${delta / 2}px)`);
+  canvas.parentElement.append(layer);
+  return {
+    resize(nextWidth) { for (const { image, transform } of pieces) image.style.transform = transform(nextWidth - width); },
+    remove() { layer.remove(); },
+  };
+}
+
 export function createAnalysisChart(canvas, { onSelect = () => {}, responsive = true } = {}) {
   if (!globalThis.Chart) throw new Error('그래프 도구를 불러오지 못했어요. 화면을 새로 열어 주세요.');
-  let model = null;
+  let model = null, preview = null, pendingRender = null;
   const clock = value => formatClockTime(clockTime(value));
   const chart = new globalThis.Chart(canvas, {
     type: 'scatter', data: { datasets: [] },
     options: {
-      responsive, maintainAspectRatio: false, animation: false, parsing: false,
+      responsive: false, maintainAspectRatio: false, animation: false, parsing: false,
       ...(responsive ? {} : { devicePixelRatio: 1 }),
       interaction: { mode: 'nearest', intersect: true },
       elements: { point: { radius: 3, hitRadius: 7 }, line: { borderWidth: 1.5 } },
       onClick(event, elements) {
         const hit = elements.find(e => chart.data.datasets[e.datasetIndex].data[e.index]?.sampleId);
-        if (hit) onSelect(chart.data.datasets[hit.datasetIndex].data[hit.index].sampleId);
+        onSelect(hit ? chart.data.datasets[hit.datasetIndex].data[hit.index].sampleId : null);
       },
       plugins: {
         legend: { display: false },
@@ -37,8 +74,49 @@ export function createAnalysisChart(canvas, { onSelect = () => {}, responsive = 
       },
     },
   });
-  return {
+  // During a layout transition only the captured bitmap is transformed. Keep
+  // the expensive point layout and canvas redraw for the final size.
+  function resize() {
+    if (!responsive) return false;
+    const { clientWidth: width, clientHeight: height } = canvas.parentElement;
+    if (preview) {
+      preview.resize(width);
+      return false;
+    }
+    if (width <= 0 || height <= 0 || getComputedStyle(canvas).visibility === 'hidden') return false;
+    if (chart.width === width && chart.height === height && chart.currentDevicePixelRatio === window.devicePixelRatio) return false;
+    chart.resize(width, height);
+    return true;
+  }
+  function clearPreview() {
+    preview?.remove(); preview = null;
+    canvas.style.removeProperty('opacity'); canvas.style.removeProperty('pointer-events');
+  }
+  const observer = responsive ? new ResizeObserver(resize) : null;
+  observer?.observe(canvas.parentElement);
+  if (responsive) window.addEventListener('resize', resize);
+  const view = {
+    beginLayoutTransition() {
+      if (!responsive || !model || chart.width <= 0 || chart.height <= 0 || !(chart.chartArea?.right > chart.chartArea?.left)) return;
+      if (preview) return; // Rapid reversals continue from the current transform.
+      chart.setActiveElements([]);
+      chart.tooltip?.setActiveElements([], { x: 0, y: 0 });
+      chart.draw();
+      preview = captureLayoutPreview(chart);
+      canvas.style.opacity = '0'; canvas.style.pointerEvents = 'none';
+      resize();
+    },
+    endLayoutTransition() {
+      if (!preview) return;
+      // Reveal only after the final canvas has been drawn in this same task.
+      const snapshot = preview; preview = null;
+      const pending = pendingRender; pendingRender = null;
+      try {
+        if (pending) view.render(...pending); else resize();
+      } finally { snapshot.remove(); clearPreview(); }
+    },
     render(next, selectedIds = []) {
+      if (preview) { pendingRender = [next, selectedIds]; return; }
       model = next;
       const selected = new Set(selectedIds), color = c => selected.has(c.raw?.sampleId) ? '#d67b40' : '#197f88';
       chart.data.datasets = [
@@ -58,11 +136,11 @@ export function createAnalysisChart(canvas, { onSelect = () => {}, responsive = 
       chart.options.scales.x.title.text = model.xLabel;
       chart.options.scales.y.title.text = model.yLabel;
       chart.options.scales.x.ticks.callback = model.xColumnId === 'receivedAt' ? clock : value => formatCalculated(value);
-      if (responsive) chart.resize();
-      chart.update('none');
+      if (!resize()) chart.update('none');
     },
-    dispose() { chart.destroy(); },
+    dispose() { observer?.disconnect(); window.removeEventListener('resize', resize); clearPreview(); pendingRender = null; chart.destroy(); },
   };
+  return view;
 }
 
 // Render from a captured display model, including when the visible chart is hidden.
@@ -94,7 +172,7 @@ export function exportAnalysisPng(model, { name = '', selectedIds = [] } = {}) {
     ctx.textBaseline = 'top'; ctx.fillStyle = '#263b40'; ctx.font = `bold 22px ${font}`;
     title.forEach((text, i) => ctx.fillText(text, 24, 20 + i * 30));
     ctx.font = `16px ${font}`;
-    ctx.fillText(`분석 포함 ${model.includedCount ?? model.points.length}개 · 제외 ${model.excludedCount ?? model.excludedPoints.length}개 · 그래프 ${model.points.length}개${model.invalidCount ? ` · 값 없음 ${model.invalidCount}개` : ''} · ${model.view === 'extended' ? '직선 연장' : '측정 범위'}   ● 분석 포함   ○ 제외`, 24, plotTop - 28);
+    ctx.fillText(`분석 포함 ${model.includedCount ?? model.points.length}개 · 제외 ${model.excludedCount ?? model.excludedPoints.length}개 · 그래프 ${model.points.length}개${model.invalidCount ? ` · 값 없음 ${model.invalidCount}개` : ''} · ${model.view === 'extended' ? '추세선 연장' : '측정 범위'}   ● 분석 포함   ○ 제외`, 24, plotTop - 28);
     ctx.drawImage(plot, 0, plotTop); ctx.font = `17px ${font}`;
     caption.forEach((text, i) => ctx.fillText(text, 24, plotTop + 648 + i * 26));
     return output.toDataURL('image/png');

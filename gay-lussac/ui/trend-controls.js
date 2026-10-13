@@ -1,9 +1,9 @@
 import { trendReasons, trendSummary } from './trend-summary.js';
 
-export function createTrendControls(root, { getWorkspace, getContext, act, signal }) {
+export function createTrendControls(root, { getWorkspace, act, signal }) {
   const $ = id => root.querySelector('#' + id), toggle = $('trend-enabled'), extended = $('trend-extended');
-  toggle.addEventListener('change', () => act(() => getWorkspace().setTrendEnabled(toggle.checked, getContext())), { signal });
-  extended.addEventListener('change', () => act(() => getWorkspace().setGraphView(extended.checked ? 'extended' : 'measured', getContext())), { signal });
+  toggle.addEventListener('change', () => act(() => getWorkspace().setTrendEnabled(toggle.checked)), { signal });
+  extended.addEventListener('change', () => act(() => getWorkspace().setGraphView(extended.checked ? 'extended' : 'measured')), { signal });
   return {
     render(model, writable) {
       const enabled = model?.regression?.enabled === true, fit = enabled ? model.regression.result : null;

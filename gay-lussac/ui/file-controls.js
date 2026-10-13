@@ -80,7 +80,12 @@ export function createFileControls({ getSnapshot, canExportGraph, exportPng, imp
       const csv = /\.csv$/i.test(file.name);
       if (!csv && !/\.json$/i.test(file.name)) throw new Error('CSV 또는 전체 실험 JSON 파일을 선택하세요.');
       const text = await file.text();
-      const snapshot = csv ? parseExperimentCsv(text, { filename: file.name }) : parseExperimentJson(text);
+      let snapshot;
+      if (csv) snapshot = parseExperimentCsv(text, { filename: file.name });
+      else {
+        try { snapshot = parseExperimentJson(text); }
+        catch (cause) { throw new Error('파일 내용을 읽을 수 없어요. 앱에서 저장한 이어하기용 원본 파일로 다시 시도해 주세요.', { cause }); }
+      }
       await importSnapshot(snapshot);
       onMessage(csv ? `CSV의 ${snapshot.samples.length}행을 새 실험으로 열었어요.`
         : '실험 파일을 열었어요. 원자료와 분석 작업을 복원했습니다.');

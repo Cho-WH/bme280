@@ -17,7 +17,8 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
   let initial;
   try {
     if (create) {
-      if (!writable) throw new Error('기록을 시작하려면 작성 잠금을 지원하는 Chrome·Edge에서 열어 주세요.');
+      if (!writable) throw new Error(locks ? '다른 탭에서 이 실험을 수정 중이에요. 그 탭을 닫고 다시 시도해 주세요.'
+        : '이 브라우저에서는 측정값을 기록할 수 없어요. 최신 Chrome·Edge에서 열어 주세요.');
       initial = { run: { id, schemaVersion: 2, runRevision: 1,
         name: name || `기체 실험 · ${new Date(now()).toLocaleString('ko-KR')}`, createdAt: now(), updatedAt: now(),
         status: 'open', program: structuredClone(program), profile: structuredClone(program.profile), source,
@@ -131,5 +132,6 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
   return { getState, getSnapshot, getRun: () => structuredClone(run),
     getEvents: (limit = 15) => structuredClone(events.slice(-limit)),
     getSamples: () => structuredClone(samples),
+    getLatestSample: () => structuredClone(samples.at(-1) ?? null),
     updateRun, appendSample, appendEvent, updateEventNote, saveWorkspace, flush, close, dispose };
 }

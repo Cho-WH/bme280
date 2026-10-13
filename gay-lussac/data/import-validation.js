@@ -1,6 +1,7 @@
-import { SOURCE_COLUMNS, validateCalculatedColumns, validateGraph, validateImportedColumns, validateInterpretation } from './contracts.js';
+import { SOURCE_COLUMNS, validateCalculatedColumns, validateGraph, validateImportedColumns } from './contracts.js';
 import { normalizeFilter } from '../analysis/table-data.js';
 import { validateAnalysisRange } from '../analysis/scope.js';
+import { validateReflection } from '../analysis/reflection.js';
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const integer = value => Number.isSafeInteger(value) && value >= 0;
@@ -58,7 +59,8 @@ export function validateExperimentSnapshot(input) {
     && new Set(values).size === values.length;
   requireValue(ids(work.selectedIds) && ids(work.appliedIds), '선택·분석 대상에 없는 자료 ID가 있습니다.');
   work.analysisRange = validateAnalysisRange(work.analysisRange, samples, work);
-  work.interpretation = validateInterpretation(work.interpretation);
+  work.reflection = validateReflection(work.reflection, samples, imported);
+  delete work.interpretation;
   requireValue(Array.isArray(work.exclusions) && ids(work.exclusions.map(e => e?.sampleId))
     && work.exclusions.every(e => typeof e.reason === 'string' && e.reason.length <= 200), '제외 자료·사유가 올바르지 않습니다.');
   work.calculatedColumns = validateCalculatedColumns(work.calculatedColumns, imported);
