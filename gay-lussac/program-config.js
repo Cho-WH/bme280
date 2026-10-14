@@ -3,7 +3,8 @@ export const PROGRAM = Object.freeze({
   url: '../firmware/bme_1.2.hex',
   fileName: 'bme_1.2.hex',
   version: 'bme 1.2',
-  sha256: '435fb8f8d160da517f3924d34cb22294a5d9e3c2aadca6bb4f5b305346e97186',
+  // SHA-256 of UTF-8 HEX text with CRLF normalized to LF (all other content retained).
+  sha256: '481d3136ae9db5747066be9ef7f21604cb060799ab62ed3206bc9e78e1fb55ea',
   verification: 'communication-verified',
   profile: Object.freeze({
     id: 'bmp280-csv-v1', fieldCount: 3,

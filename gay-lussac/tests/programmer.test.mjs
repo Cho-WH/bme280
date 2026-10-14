@@ -28,6 +28,37 @@ function fixture(overrides = {}) {
   return { programmer, usb, calls };
 }
 
+test('LF, CRLF and mixed line endings prepare and produce identical official V2 flash data', async () => {
+  const lf = firmware.toString('utf8').replace(/\r\n/g, '\n');
+  let expected;
+  for (const text of [lf, lf.replace(/\n/g, '\r\n'), lf.replace('\n', '\r\n')]) {
+    const { programmer, usb } = fixture({ fetchFile: async () => new Response(text) });
+    usb.flash = async source => {
+      const actual = await source('V2');
+      expected ??= actual;
+      assert.equal(actual, expected);
+    };
+    await programmer.prepare();
+    assert.equal(programmer.getState().status, 'ready', programmer.getState().message);
+    await programmer.install();
+    assert.equal(programmer.getState().status, 'success');
+    await programmer.dispose();
+  }
+});
+
+test('normalization still rejects changed HEX content, stray CR, whitespace, BOM and invalid UTF-8 before USB access', async () => {
+  const lf = firmware.toString('utf8').replace(/\r\n/g, '\n');
+  for (const text of [lf.replace(':', ':F'), lf.replace(':', ':\r'), ' ' + lf, '\uFEFF' + lf,
+    Buffer.concat([Buffer.from([0xff]), Buffer.from(lf)])]) {
+    const { programmer, calls } = fixture({ fetchFile: async () => new Response(text) });
+    await programmer.prepare(); await programmer.install();
+    assert.equal(programmer.getState().status, 'error');
+    assert.equal(programmer.getState().canInstall, false);
+    assert.deepEqual(calls, []);
+    await programmer.dispose();
+  }
+});
+
 test('verified real HEX uses official V2 reader; progress 100 does not mean success; concurrent clicks cannot double flash', async () => {
   const { programmer, usb, calls } = fixture();
   const completed = deferred(), flashing = deferred();
@@ -38,6 +69,7 @@ test('verified real HEX uses official V2 reader; progress 100 does not mean succ
     await completed.promise;
   };
   await programmer.prepare();
+  assert.equal(programmer.getState().status, 'ready', programmer.getState().message);
   const first = programmer.install();
   assert.equal(calls.at(-1), 'connect', 'USB starts before waiting on preparation or BLE');
   assert.equal(programmer.install(), first);
