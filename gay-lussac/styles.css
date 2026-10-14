@@ -649,11 +649,26 @@ input {
   flex-wrap: wrap;
 }
 
-.measurement-actions span {
-  font-size: 12px;
-  color: var(--muted);
+.measurement-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-left: auto;
 }
+
+.stop-button:not(:disabled) {
+  color: #9b3933;
+  background: #fcf1ef;
+  border-color: #e3b9b4;
+}
+
+.stop-button:not(:disabled):hover {
+  color: #812e29;
+  background: #f7e1dd;
+  border-color: #cb8c85;
+}
+
+.stop-button svg { flex: none; }
 
 .inline-message {
   font-size: 13px;
@@ -966,7 +981,7 @@ th,td {
     font-size: 12px;
   }
 
-  .measurement-actions span {
+  .measurement-navigation {
     width: 100%;
   }
 

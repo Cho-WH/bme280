@@ -48,6 +48,18 @@ test('shared BLE module assembles lines and ignores old notification/disconnecti
     chosen.send('27,0,1002\n');
     assert.deepEqual(received, ['25,0,1000', '26,0,1001', '27,0,1002']);
     assert.equal(ble.getContext().device, chosen.device);
+    const remembered = chosen.device;
+    await ble.disconnect();
+    let disconnects = 0;
+    ble.setDisconnectedListener(() => { disconnects++; });
+    // Reconnect directly, without requestDevice reattaching the disconnect listener.
+    await ble.connect(remembered);
+    await ble.startNotifications((line) => received.push(line));
+    chosen.send('28,0,1003\n');
+    assert.equal(received.at(-1), '28,0,1003');
+    remembered.gatt.disconnect();
+    assert.equal(disconnects, 1);
+    assert.equal(ble.getContext().device, null);
   } finally {
     await ble.disconnect(); ble.setDisconnectedListener(null);
     if (oldProperty) Object.defineProperty(navigator, 'bluetooth', oldProperty);

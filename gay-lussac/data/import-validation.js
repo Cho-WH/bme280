@@ -8,7 +8,7 @@ const integer = value => Number.isSafeInteger(value) && value >= 0;
 const date = value => Number.isFinite(value) && Math.abs(value) <= 8640000000000000;
 const string = value => typeof value === 'string' && value.length > 0;
 function requireValue(ok, message) { if (!ok) throw new Error('실험 파일: ' + message); }
-function checkJson(value, depth = 0) {
+export function checkJson(value, depth = 0) {
   requireValue(depth < 40, '중첩된 자료가 너무 깊습니다.');
   if (typeof value === 'number') requireValue(Number.isFinite(value), '유한하지 않은 숫자가 있습니다.');
   if (!value || typeof value !== 'object') return;

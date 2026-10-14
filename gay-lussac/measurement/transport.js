@@ -15,6 +15,7 @@ export function createTransport({ ble = bluetooth, clock = { utc: () => Date.now
   let attemptId = 0;
   let pending = null;
   let closing = null;
+  let previousDevice = null;
   let timeout, retry;
   let state = { status: 'disconnected', busy: false, deviceName: '', message: '' };
   let onState = () => {};
@@ -22,9 +23,13 @@ export function createTransport({ ble = bluetooth, clock = { utc: () => Date.now
   const clearTimers = () => { timers.clearTimeout(timeout); timers.clearTimeout(retry); };
   const isCurrent = (id) => id === attemptId;
 
-  function connect(profile, inputHandler, stateHandler) {
+  function connect(profile, inputHandler, stateHandler, { reuseDevice = false } = {}) {
     if (pending || closing || state.status !== 'disconnected') return pending;
     onState = stateHandler;
+    if (reuseDevice && !previousDevice) {
+      emit({ message: '이전에 연결한 장치 정보가 없어요. 마이크로비트 연결을 눌러 장치를 선택해 주세요.' });
+      return Promise.resolve();
+    }
     const id = ++attemptId;
     let hasReading = false;
     emit({ status: 'connecting', busy: true, message: '', deviceName: '' });
@@ -36,7 +41,7 @@ export function createTransport({ ble = bluetooth, clock = { utc: () => Date.now
     // requestDevice runs before any await, preserving the user's activation.
     pending = (async () => {
       try {
-        const device = await ble.requestDevice();
+        const device = reuseDevice ? previousDevice : await ble.requestDevice();
         if (!isCurrent(id)) return;
         await ble.connect(device);
         if (!isCurrent(id)) return;
@@ -47,6 +52,7 @@ export function createTransport({ ble = bluetooth, clock = { utc: () => Date.now
           inputHandler(input);
         });
         if (!isCurrent(id)) return;
+        previousDevice = device;
         emit({ status: 'connected', deviceName: device.name || 'micro:bit', busy: false });
         if (hasReading) return;
         timeout = timers.setTimeout(() => {
@@ -61,7 +67,12 @@ export function createTransport({ ble = bluetooth, clock = { utc: () => Date.now
         }
         void send();
       } catch (error) {
-        if (isCurrent(id)) { ++attemptId; emit({ status: 'disconnected', message: errorMessage(error) }); }
+        if (isCurrent(id)) {
+          ++attemptId;
+          emit({ status: 'disconnected', message: reuseDevice
+            ? '이전 마이크로비트에 다시 연결하지 못했어요. 전원을 확인한 뒤 마이크로비트 연결을 눌러 주세요.'
+            : errorMessage(error) });
+        }
       } finally {
         if (!isCurrent(id)) {
           clearTimers();
@@ -87,5 +98,6 @@ export function createTransport({ ble = bluetooth, clock = { utc: () => Date.now
     })();
     return closing;
   }
-  return { connect, disconnect, isSupported: ble.isSupported, getState: () => ({ ...state }) };
+  return { connect, disconnect, forgetDevice: () => { previousDevice = null; },
+    isSupported: ble.isSupported, getState: () => ({ ...state }) };
 }

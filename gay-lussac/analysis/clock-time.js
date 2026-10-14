@@ -1,4 +1,10 @@
 // Display and filtering share the browser-local clock, while raw UTC timestamps stay intact.
+export function formatElapsedTime(seconds) {
+  if (!Number.isFinite(seconds)) return '—';
+  const rounded = Math.round(seconds), magnitude = Math.abs(rounded);
+  return `${rounded < 0 ? '−' : ''}${Math.floor(magnitude / 60)}분 ${magnitude % 60}초`;
+}
+
 export function clockTime(timestamp) {
   if (!Number.isFinite(timestamp)) return null;
   const date = new Date(timestamp);

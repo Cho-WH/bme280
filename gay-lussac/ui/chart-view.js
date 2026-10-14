@@ -1,5 +1,5 @@
 import { CONNECTION } from '../program-config.js';
-import { clockTime, formatClockTime } from '../analysis/clock-time.js';
+import { clockTime, formatClockTime, formatElapsedTime } from '../analysis/clock-time.js';
 import { formatCalculated } from '../analysis/calculations.js';
 import { trendSummary } from './trend-summary.js';
 
@@ -190,7 +190,7 @@ export function createChartView(canvas, { inspect = false, onCursor = () => {}, 
         if (!currentPoints.length) return;
         const at = c.scales.x.getValueForPixel(event.x) * 1000 + timeOrigin;
         const point = currentPoints.reduce((best, p) => Math.abs(p.receivedAt - at) < Math.abs(best.receivedAt - at) ? p : best);
-        cursor = (point.receivedAt - timeOrigin) / 1000; onCursor(point); c.draw();
+        cursor = (point.receivedAt - timeOrigin) / 1000; onCursor(point, cursor); c.draw();
       },
       afterDraw(c) {
         if (cursor !== null && c.chartArea) {
@@ -208,7 +208,9 @@ export function createChartView(canvas, { inspect = false, onCursor = () => {}, 
       responsive: true, maintainAspectRatio: false, animation: false,
       parsing: false, spanGaps: false,
       elements: { point: { radius: 0, hitRadius: 8 }, line: { borderWidth: 2 } },
-      plugins: { tooltip: { enabled: !inspect }, legend: { display: !inspect, position: 'bottom', labels: { usePointStyle: true, boxWidth: 7, font: { size: 13 } } } },
+      plugins: { tooltip: { enabled: !inspect, callbacks: {
+        title: items => formatElapsedTime(items[0]?.raw.elapsedSeconds),
+      } }, legend: { display: !inspect, position: 'bottom', labels: { usePointStyle: true, boxWidth: 7, font: { size: 13 } } } },
       scales: {
         x: { type: 'linear', min: -60, max: 0, title: { display: true, text: '지금으로부터 (초)' }, grid: { color: '#edf1f2' } },
         temperature: { type: 'linear', position: 'left', title: { display: true, text: '온도 (℃)' }, grid: { color: '#edf1f2' } },
@@ -230,7 +232,8 @@ export function createChartView(canvas, { inspect = false, onCursor = () => {}, 
           const x = whole ? (point.receivedAt - origin) / 1000 : (point.monotonicAt - now) / 1000;
           const delta = previous ? point.receivedAt - previous.receivedAt : 0;
           if (previous && (delta < 0 || (!connectGaps && delta >= CONNECTION.staleMs))) data.push({ x, y: null });
-          data.push({ x, y: point.validity[field] === 'valid' ? point[field] : null, sampleId: point.sampleId });
+          data.push({ x, y: point.validity[field] === 'valid' ? point[field] : null, sampleId: point.sampleId,
+            elapsedSeconds: (point.receivedAt - origin) / 1000 });
           previous = point;
         }
         chart.data.datasets[index].data = data;
@@ -243,7 +246,7 @@ export function createChartView(canvas, { inspect = false, onCursor = () => {}, 
           if (!nearest) return [];
           const x = whole ? (e.receivedAt - origin) / 1000
             : (nearest.monotonicAt - now - (nearest.receivedAt - e.receivedAt)) / 1000;
-          return x < -60 && !whole ? [] : [{ x, y: nearest.temperatureC }];
+          return x < -60 && !whole ? [] : [{ x, y: nearest.temperatureC, elapsedSeconds: (e.receivedAt - origin) / 1000 }];
         }) };
       chart.update('none');
     },

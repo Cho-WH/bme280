@@ -60,8 +60,9 @@ const additionalDialog = createAdditionalDialog($('additional-dialog'), confirma
   session.startAdditional(confirmation);
   guideProgress.clear(['reception', 'battery', 'placement']);
   guideView.setCompleted(guideProgress.getCompleted());
-  stepIndex = STEPS.findIndex(step => step.id === 'placement');
-  navigate('measure'); renderConnection(connection);
+  stepIndex = STEPS.findIndex(step => step.id === 'reception');
+  navigate('prepare'); renderConnection(connection);
+  connectDevice({ reuseDevice: true });
 });
 const eventNoteDialog = createEventNoteDialog($('event-note-dialog'), (event, note) => {
   if (event.runId !== runStore?.getState().id) throw new Error('현재 실험의 기록을 다시 선택해 주세요.');
@@ -194,7 +195,8 @@ function renderReadings() {
     : STEPS[stepIndex].id === 'reception' ? !ready : batteryStep ? !confirmed : false);
   if (screen === 'measure' && chart && now - lastChartPaint >= 1000) {
     const points = chartRange === 'all' && runStore ? runStore.getSamples() : snapshot.points;
-    chart.render(points, now, { range: chartRange, events: runStore?.getEvents(100) ?? [] }); lastChartPaint = now;
+    chart.render(points, now, { range: chartRange, events: runStore?.getEvents(100) ?? [],
+      origin: runStore?.getFirstSample()?.receivedAt ?? points[0]?.receivedAt }); lastChartPaint = now;
     $('chart-empty').hidden = points.length > 0;
   }
   renderRecording(ready);
@@ -256,6 +258,7 @@ async function deleteSavedRun(run) {
     if (current) await transport.disconnect();
     await target.remove();
     if (current) {
+      transport.forgetDevice();
       analysisView.reset(); runStore = null; session = null; monitor = createReceptionMonitor();
       chart?.dispose(); chart = null; lastEventPaint = -1; lastChartPaint = 0;
       $('storage-status').textContent = '저장할 실험 없음';
@@ -327,7 +330,7 @@ function hasLiveSession() { return canRecord() || (!!runStore?.getState().writab
 function canAddMeasurements() {
   const saved = runStore?.getState();
   return canConnectSource() && !!saved?.writable && saved.runStatus === 'complete' && saved.status === 'clean'
-    && (!session || session.getState().state === 'ended') && !openingRun && !programState.busy;
+    && (!session || session.getState().state === 'ended') && !openingRun && !programState.busy && !connection.busy;
 }
 function onStoreChange() { renderStorage(); }
 function renderStorage() {
@@ -385,7 +388,7 @@ function renderRecording(ready) {
   $('pause-recording').disabled = !hasLiveSession() || !!openingRun;
   $('pause-recording').textContent = paused ? '기록 재개' : '기록 일시정지';
   $('finish-run').disabled = !session || live.state === 'ended' || !!openingRun;
-  $('finish-run').textContent = live?.state === 'finishing' ? '저장 다시 시도' : '측정 마치기';
+  $('finish-run-label').textContent = live?.state === 'finishing' ? '저장 다시 시도' : '측정 마치기';
   $('measurement-guidance').textContent = live ? measurementGuidance(live, ready)
     : saved.runStatus === 'complete' ? '측정을 마친 실험입니다. 자료를 분석하거나 위의 추가 측정으로 기록을 이어가세요.' : '이어 측정을 선택하면 마지막 자료 다음부터 기록합니다.';
   if (lastEventPaint !== saved.eventsVersion) renderEventLists();
@@ -414,6 +417,7 @@ async function openRun(id, { force = false, fromImport = false } = {}) {
     const next = await openRunStore({ repository, ...(id ? { id } : {}), create: !id, program: PROGRAM, onChange: onStoreChange });
     try { await transport.disconnect(); analysisView.reset(); await runStore?.close(); }
     catch (error) { next.dispose(); if (screen === 'analysis') analysisView.open(runStore); throw error; }
+    transport.forgetDevice();
     runStore = next; session = null; monitor = createReceptionMonitor(); lastEventPaint = -1; lastChartPaint = 0;
     chartRange = id ? 'all' : 'recent'; $('chart-range').value = chartRange;
     const run = next.getRun();
@@ -462,10 +466,12 @@ document.querySelectorAll('[data-guide-connection]').forEach(button => button.ad
   stepIndex = STEPS.findIndex(step => step.id === 'reception');
   if (screen === 'prepare') renderStep(true); else navigate('prepare');
 }));
-$('connect').addEventListener('click', () => {
-  if (!hasLiveSession() || !canConnectSource()) return;
-  void transport.connect(PROGRAM.profile, (input) => { session?.acceptInput(input); }, renderConnection);
-});
+function connectDevice({ reuseDevice = false } = {}) {
+  if (!hasLiveSession() || !canConnectSource() || openingRun || programState.busy || connection.busy
+    || connection.status !== 'disconnected' || !transport.isSupported() || !isSecureContext) return;
+  void transport.connect(PROGRAM.profile, (input) => { session?.acceptInput(input); }, renderConnection, { reuseDevice });
+}
+$('connect').addEventListener('click', () => connectDevice());
 $('disconnect').addEventListener('click', () => { void transport.disconnect(); });
 $('pause-recording').addEventListener('click', () => { void act(async () => {
   if (!hasLiveSession()) return;
@@ -497,6 +503,7 @@ $('analyze-unfinished').addEventListener('click', () => { void act(async () => {
   if (!runStore?.getState().writable) return;
   session ??= createSession({ store: runStore, monitor }); await finishAndAnalyze();
 }); });
+$('go-to-analysis').addEventListener('click', () => navigate('analysis'));
 for (const id of ['finish-run', 'finish-for-analysis']) $(id).addEventListener('click', () => { void act(finishAndAnalyze); });
 $('temporary-analysis').addEventListener('click', () => { void act(async () => {
   session?.useTemporary(); await transport.disconnect(); navigate('analysis');

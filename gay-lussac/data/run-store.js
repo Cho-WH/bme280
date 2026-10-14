@@ -149,5 +149,6 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
     getEvents: (limit = 15) => structuredClone(events.slice(-limit)),
     getSamples: () => structuredClone(samples),
     getLatestSample: () => structuredClone(samples.at(-1) ?? null),
+    getFirstSample: () => structuredClone(samples[0] ?? null),
     updateRun, appendSample, appendEvent, updateEventNote, saveWorkspace, flush, close, dispose, remove };
 }

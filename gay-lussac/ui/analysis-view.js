@@ -10,6 +10,7 @@ import { tableColumns } from './table-columns.js';
 import { columnFilterActive } from '../analysis/table-data.js';
 import { scopeMembership, statusLabels, timeBounds } from '../analysis/scope.js';
 import { formatCalculated } from '../analysis/calculations.js';
+import { formatElapsedTime } from '../analysis/clock-time.js';
 import { exportAnalysisPng, createChartView } from './chart-view.js';
 
 export function createAnalysisView(root, { onError, onExport = () => {} }) {
@@ -159,7 +160,7 @@ export function createAnalysisView(root, { onError, onExport = () => {} }) {
   root.addEventListener('keydown', event => { if (event.key === 'Escape' && focusedId !== null && !root.querySelector(':popover-open, dialog[open]')) closePoint(); }, { signal });
   for (const button of root.querySelectorAll('[data-export]')) button.addEventListener('click', () => { if (reflection.flush()) onExport(button.dataset.export, button); }, { signal });
   function renderPoint(state, rows) {
-    const sample = workspace?.getSamples().find(s => s.sampleId === focusedId);
+    const samples = workspace?.getSamples() ?? [], sample = samples.find(s => s.sampleId === focusedId);
     const inspector = $('point-inspector'), host = $(tableOpen ? 'table-point-slot' : 'graph-point-slot');
     $('graph-point-slot').hidden = tableOpen;
     for (const slot of [$('table-point-slot'), $('graph-point-slot')]) slot.dataset.active = String(slot === host && Boolean(sample));
@@ -167,7 +168,9 @@ export function createAnalysisView(root, { onError, onExport = () => {} }) {
     inspector.hidden = !sample || (task === 'overview' && !tableOpen);
     if (!sample) return;
     const scope = scopeMembership(state), excluded = scope.excluded.has(focusedId);
-    $('point-title').textContent = '자료 ' + sample.sampleId + ' · ' + statusLabels[scope.status(focusedId)];
+    $('point-title').textContent = (task === 'overview'
+      ? formatElapsedTime((sample.receivedAt - samples[0].receivedAt) / 1000)
+      : '자료 ' + sample.sampleId) + ' · ' + statusLabels[scope.status(focusedId)];
     $('point-time').textContent = new Date(sample.receivedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
     const values = [
       ['온도', sample.validity.temperatureC === 'valid' ? formatCalculated(sample.temperatureC) + ' ℃' : '값 없음'],
@@ -238,8 +241,8 @@ export function createAnalysisView(root, { onError, onExport = () => {} }) {
     $('use-graph-for-reflection').disabled = !writable || !currentModel?.points.length;
     reflection.render(task === 'interpretation');
     if (task === 'overview' && workspace) {
-      overview ??= createChartView($('overview-chart'), { inspect: true, onLayout: () => range.layout(), onCursor(sample) {
-        $('overview-readout').textContent = sample ? new Date(sample.receivedAt).toLocaleTimeString('ko-KR', { hour12: false, fractionalSecondDigits: 3 })
+      overview ??= createChartView($('overview-chart'), { inspect: true, onLayout: () => range.layout(), onCursor(sample, elapsedSeconds) {
+        $('overview-readout').textContent = sample ? formatElapsedTime(elapsedSeconds)
           + ' · 온도 ' + (sample.validity.temperatureC === 'valid' ? formatCalculated(sample.temperatureC) + ' ℃' : '값 없음')
           + ' · 기압 ' + (sample.validity.pressureHpa === 'valid' ? formatCalculated(sample.pressureHpa) + ' hPa' : '값 없음')
           : '그래프 위에서 같은 시점의 두 값을 확인할 수 있어요.';
@@ -261,7 +264,7 @@ export function createAnalysisView(root, { onError, onExport = () => {} }) {
     const saved = store.getState(), loaded = workspace.getLoadedCount(), added = Math.max(0, saved.sampleCount - loaded);
     $('analysis-message').textContent = '자료 ' + number(loaded) + '개' + (!saved.writable ? ' · 읽기 전용' : '');
     $('analysis-message').title = '실험 전체 원자료 ' + number(saved.sampleCount) + '개 · 분석에 불러온 자료 ' + number(loaded) + '개';
-    $('apply-new-data').textContent = '새 자료 ' + number(added) + '개 보기'; $('apply-new-data').hidden = !added; $('apply-new-data').disabled = !saved.writable || !added;
+    $('apply-new-data').textContent = '새 자료 ' + number(added) + '개 반영'; $('apply-new-data').hidden = !added; $('apply-new-data').disabled = !saved.writable || !added;
   }
   function reset() {
     clearTimeout(layoutTimer); layoutTimer = null;

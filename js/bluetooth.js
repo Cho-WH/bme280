@@ -101,6 +101,8 @@ export const requestDevice = async () => {
 export const connect = async (selectedDevice) => {
   assertBluetoothAvailability()
   device = selectedDevice
+  // disconnect() removes this listener; restore it when reusing an authorized device.
+  device.addEventListener('gattserverdisconnected', handleGattDisconnection)
 
   const server = await device.gatt?.connect()
   if (!server) {

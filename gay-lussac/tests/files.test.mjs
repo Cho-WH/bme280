@@ -126,3 +126,81 @@ test('fresh JSON import keeps source ID and no-workspace recordings remain valid
   assert.equal(batch.workspace, null);
   assert.deepEqual(parseExperimentJson(buildExperimentJson(snapshot)).samples, snapshot.samples);
 });
+
+test('version 2 preserves exceptional and absent fields, irregular times, and independent raw records; version 1 still reads', () => {
+  const { snapshot } = fixture();
+  snapshot.samples[1].temperatureC = null;
+  snapshot.samples[1].validity.temperatureC = 'missing';
+  snapshot.samples[2].temperatureC = -140.123456789;
+  snapshot.samples[2].validity.temperatureC = 'out-of-range';
+  snapshot.samples[2].receivedAt = snapshot.samples[0].receivedAt - 37;
+  snapshot.samples[2].extraChannels.humidityPct = 17.625;
+  snapshot.samples[3].sourceSampleId = 91;
+  delete snapshot.samples[3].extraChannels;
+  snapshot.samples[4].extraChannels = null;
+  const before = copy(snapshot), text = buildExperimentJson(snapshot), file = JSON.parse(text);
+  const legacy = JSON.stringify({ format: 'gay-lussac-experiment', version: 1, snapshot }, null, 2);
+  const restored = parseExperimentJson(text);
+  assert.equal(file.version, 2);
+  assert.ok(!text.includes('\n'));
+  assert.deepEqual(restored.samples, snapshot.samples);
+  assert.deepEqual(restored, parseExperimentJson('\uFEFF' + legacy));
+  assert.deepEqual(snapshot, before, 'export must not mutate the live snapshot');
+  restored.samples[0].validity.temperatureC = 'missing';
+  assert.equal(restored.samples[5].validity.temperatureC, 'valid', 'shared file defaults must become independent records');
+  snapshot.samples = []; snapshot.events = []; snapshot.workspace = null;
+  snapshot.run.lastSavedSampleId = snapshot.run.lastSavedEventId = 0;
+  assert.deepEqual(parseExperimentJson(buildExperimentJson(snapshot)), snapshot);
+});
+
+test('compact JSON rejects malformed rows, ambiguous overrides, unsafe properties and excessive expansion', () => {
+  const { snapshot } = fixture(), file = JSON.parse(buildExperimentJson(snapshot));
+  const changes = [
+    p => { p.columns[0] = 'receivedAt'; },
+    p => { p.defaults.temperatureC = 25; },
+    p => { p.rows[0].pop(); },
+    p => { p.rows[0] = null; },
+    p => { p.overrides = [[-1, {}, []]]; },
+    p => { p.overrides = [[p.rows.length, {}, []]]; },
+    p => { p.overrides = [[1, {}, []], [1, {}, []]]; },
+    p => { p.overrides = [[2, {}, []], [1, {}, []]]; },
+    p => { p.overrides = [[0, { sampleId: 5 }, []]]; },
+    p => { p.overrides = [[0, {}, ['temperatureC']]]; },
+    p => { p.overrides = [[0, { runId: 'x' }, ['runId']]]; },
+    p => { p.overrides = [[0, {}, ['runId', 'runId']]]; },
+    p => { p.overrides = [[0, null, []]]; },
+    p => { p.defaults.validity = JSON.parse('{"__proto__":{"bad":true}}'); },
+  ];
+  for (const change of changes) {
+    const bad = copy(file); change(bad.snapshot.samples);
+    assert.throws(() => parseExperimentJson(JSON.stringify(bad)), /실험 파일/);
+  }
+  const huge = copy(file);
+  huge.snapshot.samples.defaults.note = 'x'.repeat(500_000);
+  huge.snapshot.samples.rows = Array.from({ length: 120 }, (_, i) => [i + 1, at, 25, 1000]);
+  assert.throws(() => parseExperimentJson(JSON.stringify(huge)), /복원할 자료가 너무 큽니다/);
+});
+
+test('8000 measurements export compactly and restore all timestamps and exceptions without loss', () => {
+  const { snapshot } = fixture(); snapshot.workspace = null;
+  snapshot.run.id = '11111111-2222-4333-8444-555555555555';
+  snapshot.samples = Array.from({ length: 8000 }, (_, i) => ({
+    runId: snapshot.run.id, sampleId: i + 1, receivedAt: at + i * 200 + i % 7,
+    temperatureC: Math.round((25 + 10 * Math.sin(i / 2000)) * 100) / 100,
+    pressureHpa: Math.round((1000 + 30 * Math.sin(i / 2000)) * 100) / 100,
+    extraChannels: { humidityPct: 0 },
+    validity: { temperatureC: 'valid', pressureHpa: 'valid', humidityPct: 'unsupported' },
+  }));
+  snapshot.samples[123].validity.temperatureC = 'out-of-range';
+  snapshot.samples[123].temperatureC = -140.123456789;
+  snapshot.samples[0].validity.temperatureC = 'missing';
+  snapshot.samples[0].temperatureC = null;
+  snapshot.samples[124].receivedAt = snapshot.samples[123].receivedAt;
+  snapshot.events.forEach(e => { e.runId = snapshot.run.id; });
+  snapshot.run.lastSavedSampleId = 7999;
+  const oldFile = JSON.stringify({ format: 'gay-lussac-experiment', version: 1, snapshot }, null, 2);
+  const newFile = buildExperimentJson(snapshot);
+  assert.equal(JSON.parse(newFile).snapshot.samples.defaults.validity.temperatureC, 'valid');
+  assert.ok(Buffer.byteLength(newFile) < Buffer.byteLength(oldFile) * 0.15, 'normal records with an exception should shrink by at least 85%');
+  assert.deepEqual(parseExperimentJson(newFile), parseExperimentJson(oldFile));
+});

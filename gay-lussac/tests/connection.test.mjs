@@ -99,8 +99,48 @@ function fixture(ble = fakeBle()) {
   const timers = new Timers(), inputs = [], states = [];
   const transport = createTransport({ ble, timers, clock: { utc: () => timers.now, mono: () => timers.now } });
   return { ble, timers, inputs, states, transport,
-    connect: () => transport.connect(PROGRAM.profile, (input) => inputs.push(input), (state) => states.push(state)) };
+    connect: (options) => transport.connect(PROGRAM.profile, (input) => inputs.push(input), (state) => states.push(state), options) };
 }
+
+test('additional connection reuses the device without a chooser and keeps fresh input attempts', async () => {
+  const ble = fakeBle(), device = { name: 'previous micro:bit' };
+  let requests = 0; const connected = [];
+  ble.requestDevice = async () => { requests++; return device; };
+  ble.connect = async selected => { connected.push(selected); };
+  const f = fixture(ble);
+  await f.connect();
+  const oldHandler = ble.handlers[0]; oldHandler('25,0,1000');
+  await f.transport.disconnect();
+  await f.connect({ reuseDevice: true });
+  oldHandler('99,0,1099'); ble.handlers[1]('26,0,1001');
+  assert.equal(requests, 1);
+  assert.deepEqual(connected, [device, device]);
+  assert.deepEqual(f.inputs.map(input => input.temperatureC), [25, 26]);
+  assert.notEqual(f.inputs[0].attemptId, f.inputs[1].attemptId);
+  await f.transport.disconnect();
+  f.transport.forgetDevice();
+  await f.connect({ reuseDevice: true });
+  assert.equal(requests, 1);
+  assert.equal(connected.length, 2);
+  assert.match(f.transport.getState().message, /장치 정보가 없어요/);
+});
+
+test('failed direct reconnection never opens a chooser and permits an explicit new selection', async () => {
+  const ble = fakeBle(); let requests = 0;
+  ble.requestDevice = async () => { requests++; return { name: 'micro:bit' }; };
+  const f = fixture(ble); await f.connect(); await f.transport.disconnect();
+  ble.connect = async () => { throw Object.assign(new Error('offline'), { name: 'NetworkError' }); };
+  await f.connect({ reuseDevice: true });
+  assert.equal(requests, 1);
+  assert.equal(f.transport.getState().busy, false);
+  assert.equal(f.transport.getState().status, 'disconnected');
+  assert.match(f.transport.getState().message, /다시 연결하지 못했어요/);
+  ble.connect = async () => {};
+  await f.connect();
+  assert.equal(requests, 2);
+  assert.equal(f.transport.getState().status, 'connected');
+  await f.transport.disconnect();
+});
 
 test('retries are bounded; invalid values do not cancel first-reading timeout', async () => {
   const f = fixture(); await f.connect();
@@ -149,4 +189,27 @@ test('cancelling during a pending device chooser cleans up before another attemp
   assert.equal(f.ble.handlers.length, 0);
   assert.equal(f.transport.getState().status, 'disconnected');
   assert.equal(f.transport.getState().busy, false);
+});
+
+test('device selection starts synchronously and can be retried after cancelling additional connection', async () => {
+  const ble = fakeBle(); let requests = 0;
+  ble.requestDevice = () => {
+    requests++;
+    return requests === 1
+      ? Promise.reject(Object.assign(new Error('cancelled'), { name: 'NotFoundError' }))
+      : Promise.resolve({ name: 'test device' });
+  };
+  const f = fixture(ble);
+  const cancelled = f.connect();
+  assert.equal(requests, 1); // No await may precede the device chooser.
+  await cancelled;
+  assert.equal(f.transport.getState().status, 'disconnected');
+  assert.equal(f.transport.getState().busy, false);
+  assert.match(f.transport.getState().message, /취소/);
+  await f.connect();
+  f.ble.handlers[0]('26,0,1001');
+  assert.equal(requests, 2);
+  assert.equal(f.transport.getState().status, 'connected');
+  assert.equal(f.inputs[0].temperatureC, 26);
+  await f.transport.disconnect();
 });

@@ -105,7 +105,7 @@ export function createWorkspace({ store }) {
   }
   function validateIds(ids) {
     const allowed = new Set(loadedIds());
-    if (ids.some(id => !allowed.has(id))) throw new Error('먼저 새 자료 보기를 눌러 표에 자료를 불러오세요.');
+    if (ids.some(id => !allowed.has(id))) throw new Error('먼저 새 자료 반영을 눌러 표에 자료를 불러오세요.');
     return orderedIds(ids);
   }
   function setSelection(ids) { return commit({ ...copy(state), selectedIds: validateIds(ids) }); }

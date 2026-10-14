@@ -1,5 +1,6 @@
 import { createCalculator, columnLabel } from '../analysis/calculations.js';
-import { validateExperimentSnapshot } from './import-validation.js';
+import { checkJson, validateExperimentSnapshot } from './import-validation.js';
+import { packSamples, unpackSamples } from './compact-samples.js';
 import { scopeMembership } from '../analysis/scope.js';
 export { parseExperimentCsv } from './csv-import.js';
 
@@ -44,17 +45,19 @@ export function buildAnalysisCsv(snapshot, columnIds = snapshot.workspace?.calcu
 }
 
 export function buildExperimentJson(snapshot) {
-  const copy = structuredClone(snapshot);
+  const copy = { ...snapshot, samples: packSamples(snapshot.samples) };
   // Persist the setting, never a cached fit that may be stale when imported.
-  if (copy.workspace) copy.workspace.regression = { enabled: copy.workspace.regression?.enabled === true };
-  return JSON.stringify({ format: 'gay-lussac-experiment', version: 1, snapshot: copy }, null, 2);
+  if (copy.workspace) copy.workspace = { ...copy.workspace, regression: { enabled: copy.workspace.regression?.enabled === true } };
+  return JSON.stringify({ format: 'gay-lussac-experiment', version: 2, snapshot: copy });
 }
 
 export function parseExperimentJson(text) {
   let file;
   try { file = JSON.parse(text.replace(/^\uFEFF/, '')); }
   catch { throw new Error('JSON 파일을 읽지 못했어요. 전체 실험 JSON 파일을 선택하세요.'); }
-  if (file?.format !== 'gay-lussac-experiment' || file.version !== 1)
+  if (file?.format !== 'gay-lussac-experiment' || ![1, 2].includes(file.version))
     throw new Error('지원하는 전체 실험 JSON 형식·버전이 아닙니다.');
-  return validateExperimentSnapshot(file.snapshot);
+  if (file.version === 1) return validateExperimentSnapshot(file.snapshot);
+  checkJson(file.snapshot);
+  return validateExperimentSnapshot(unpackSamples(file.snapshot));
 }
