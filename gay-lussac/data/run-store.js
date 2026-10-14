@@ -19,8 +19,11 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
     if (create) {
       if (!writable) throw new Error(locks ? '다른 탭에서 이 실험을 수정 중이에요. 그 탭을 닫고 다시 시도해 주세요.'
         : '이 브라우저에서는 측정값을 기록할 수 없어요. 최신 Chrome·Edge에서 열어 주세요.');
+      const createdAt = now();
+      const date = new Date(createdAt);
+      const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
       initial = { run: { id, schemaVersion: 2, runRevision: 1,
-        name: name || `기체 실험 · ${new Date(now()).toLocaleString('ko-KR')}`, createdAt: now(), updatedAt: now(),
+        name: name || `게이뤼삭 실험 · ${date.getMonth() + 1}월 ${date.getDate()}일 ${time}`, createdAt, updatedAt: createdAt,
         status: 'open', program: structuredClone(program), profile: structuredClone(program.profile), source,
         lastSavedSampleId: 0, lastSavedEventId: 0 }, samples: [], events: [], workspace: null };
     } else {
@@ -40,10 +43,10 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
   let lastEventId = events.at(-1)?.eventId ?? 0;
   const editedEvents = new Map();
   let eventsVersion = 0;
-  let timer = null, saving = null, error = null, closed = false, retryBatch = null;
+  let timer = null, saving = null, error = null, closed = false, removing = false, retryBatch = null;
   const dirty = () => lastSampleId > saved.sampleId || lastEventId > saved.eventId
     || run.runRevision > saved.runRevision || (workspace?.workspaceRevision ?? 0) > saved.workspaceRevision;
-  const assertWriter = () => { if (!writable || closed) throw new Error('이 실험은 읽기 전용입니다.'); };
+  const assertWriter = () => { if (!writable || closed || removing) throw new Error('이 실험은 읽기 전용입니다.'); };
   function getState() {
     return { id, name: run.name, source: run.source, writable: writable && !closed, runStatus: run.status,
       status: saving ? 'saving' : error ? 'error' : dirty() ? 'pending' : 'clean',
@@ -61,6 +64,11 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
   function changed() { run.runRevision++; run.updatedAt = now(); schedule(); emit(); }
   function updateRun(patch) {
     assertWriter();
+    if ('name' in patch) {
+      if (typeof patch.name !== 'string' || !patch.name.trim() || patch.name.trim().length > 120)
+        throw new Error('실험 이름을 1~120자로 입력해 주세요.');
+      patch = { ...patch, name: patch.name.trim() };
+    }
     for (const key of Object.keys(patch)) {
       if (!['name', 'status'].includes(key)) throw new Error(`수정할 수 없는 실험 항목: ${key}`);
     }
@@ -127,11 +135,19 @@ export async function openRunStore({ repository, id = crypto.randomUUID(), progr
     if (writable) await flush();
     dispose(); await lockTask;
   }
+  async function remove() {
+    assertWriter();
+    if (saving || dirty()) throw new Error('아직 저장 중인 자료가 있어요. 저장을 마친 뒤 삭제해 주세요.');
+    // Keep the writer lock until the entire deletion transaction finishes.
+    removing = true;
+    try { await repository.deleteRun(id); dispose(); await lockTask; }
+    finally { removing = false; }
+  }
   function dispose() { closed = true; timers.clearTimeout(timer); timer = null; releaseLock(); }
   schedule();
   return { getState, getSnapshot, getRun: () => structuredClone(run),
     getEvents: (limit = 15) => structuredClone(events.slice(-limit)),
     getSamples: () => structuredClone(samples),
     getLatestSample: () => structuredClone(samples.at(-1) ?? null),
-    updateRun, appendSample, appendEvent, updateEventNote, saveWorkspace, flush, close, dispose };
+    updateRun, appendSample, appendEvent, updateEventNote, saveWorkspace, flush, close, dispose, remove };
 }

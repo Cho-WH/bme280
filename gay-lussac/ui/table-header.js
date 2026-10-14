@@ -32,7 +32,7 @@ export function createTableHeader({ table, onSort, signal }) {
     if (editable) {
       const button = document.createElement('button'); button.type = 'button'; button.dataset.calculationMenu = id;
       button.className = 'calculation-menu-button'; button.title = '계산 열 편집';
-      button.innerHTML = '<span class="calculation-edit-icon" aria-hidden="true"></span>';
+      button.innerHTML = '<span class="edit-icon" aria-hidden="true"></span>';
       button.setAttribute('aria-label', label + ' 계산 열 편집');
       button.setAttribute('aria-expanded', 'false'); button.setAttribute('aria-controls', 'calculation-menu');
       controls.append(button);

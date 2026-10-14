@@ -21,7 +21,7 @@ export const STEPS = [
   { id: 'program', group: 4, label: '프로그램', title: '실험 프로그램을 넣어요',
     description: 'USB로 프로그램 설치를 누르세요. 처음 연결할 때는 사용할 micro:bit를 선택하면 실험 프로그램이 자동으로 전송돼요. 설치가 끝나면 새 측정값을 확인합니다.',
     action: '설치했어요', model: view('ports') },
-  { id: 'reception', group: 5, label: '수신 확인', title: '새 측정값이 들어오는지 봐요',
+  { id: 'reception', group: 5, label: '통신 연결', title: '마이크로비트와 연결해요',
     description: '마이크로비트 연결을 누르고 사용할 장치를 선택하세요. 새 온도·압력값이 계속 들어오는지 확인해요.',
     action: '수신을 확인했어요', model: view() },
   { id: 'battery', group: 6, label: '배터리', title: 'USB 없이도 값이 들어오나요?',

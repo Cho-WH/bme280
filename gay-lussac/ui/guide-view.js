@@ -1,6 +1,6 @@
 import { createGuideLayout } from './guide-layout.js';
 
-const GROUP_LABELS = ['준비물', '배선', 'USB', '프로그램', '수신', '배터리', '용기'];
+const GROUP_LABELS = ['준비물', '배선', 'USB', '프로그램', '통신 연결', '배터리', '용기'];
 const WIRING = [
   ['vcc', '전원', 'V', 'VCC'], ['gnd', '접지', 'G', 'GND'],
   ['scl', '클록', 'CL · P19', 'SCL'], ['sda', '데이터', 'DA · P20', 'SDA'],
@@ -43,11 +43,17 @@ export function createGuideView({ root, steps, onSelectStep, onRestore }) {
   const listeners = new AbortController();
   const listen = (element, action) => element.addEventListener('click', action, { signal: listeners.signal });
   let step = steps[0], busy = false, viewerState = 'loading', mode = '3d';
+  let completed = new Set();
   const highlightWire = createWiringTable(get('fallback-table'));
   const buttons = GROUP_LABELS.map((label, index) => {
     const item = document.createElement('li');
     const button = document.createElement('button'); button.type = 'button';
-    button.textContent = `${index + 1} ${label}`;
+    const text = document.createElement('span'); text.textContent = `${index + 1} ${label}`;
+    const check = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    check.setAttribute('viewBox', '0 0 24 24'); check.setAttribute('aria-hidden', 'true');
+    check.classList.add('step-check');
+    check.innerHTML = '<path d="m5 12 4 4L19 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+    button.append(text, check);
     listen(button, () => { if (!busy) onSelectStep(steps.find(candidate => candidate.group === index + 1)); });
     item.append(button); progress.append(item);
     return button;
@@ -70,7 +76,9 @@ export function createGuideView({ root, steps, onSelectStep, onRestore }) {
   function renderNavigation() {
     buttons.forEach((button, index) => {
       button.disabled = busy;
-      button.classList.toggle('past', index + 1 < step.group);
+      const done = steps.filter(candidate => candidate.group === index + 1).every(candidate => completed.has(candidate.id));
+      button.classList.toggle('completed', done);
+      button.setAttribute('aria-label', `${index + 1} ${GROUP_LABELS[index]}${done ? ', 완료' : ''}`);
       if (index + 1 === step.group) button.setAttribute('aria-current', 'step');
       else button.removeAttribute('aria-current');
     });
@@ -109,6 +117,8 @@ export function createGuideView({ root, steps, onSelectStep, onRestore }) {
       renderText(content, step); content.dataset.group = String(step.group);
       get('next-step').textContent = step.action;
       get('program-actions').hidden = step.id !== 'program';
+      get('connection-tools').hidden = step.id !== 'reception';
+      get('battery-connection').hidden = step.id !== 'battery';
       get('reception-check').hidden = !['reception', 'battery'].includes(step.id);
       get('confirm-battery').hidden = step.id !== 'battery';
       get('wiring-note').hidden = !step.model.wire;
@@ -116,6 +126,7 @@ export function createGuideView({ root, steps, onSelectStep, onRestore }) {
       if (focus) get('step-title').focus({ preventScroll: true });
     },
     setBusy(value) { busy = value; renderNavigation(); },
+    setCompleted(ids) { completed = new Set(ids); renderNavigation(); },
     setViewerState(value) { viewerState = value; renderViewer(); },
     dispose() { listeners.abort(); layout.dispose(); },
   };

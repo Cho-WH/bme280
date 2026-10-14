@@ -50,6 +50,39 @@ async function fixture(extra = {}) {
     accept(value, overrides) { ms = value; session.acceptInput(reading(value, overrides)); } };
 }
 
+test('failed deletion keeps the writer and data usable, blocking edits until deletion settles', async () => {
+  const repo = repository(), lockManager = locks();
+  let rejectDelete;
+  repo.deleteRun = () => new Promise((resolve, reject) => { rejectDelete = reject; });
+  const f = await fixture({ repository: repo, locks: lockManager });
+  await f.store.flush();
+  const deletion = f.store.remove();
+  assert.throws(() => f.store.updateRun({ name: 'during deletion' }), /읽기 전용/);
+  const reader = await openRunStore({ repository: repo, id: 'test', locks: lockManager, timers });
+  assert.equal(reader.getState().writable, false);
+  rejectDelete(new Error('delete failed'));
+  await assert.rejects(deletion, /delete failed/);
+  assert.equal(f.store.getState().writable, true);
+  f.store.updateRun({ name: 'recovered' }); await f.store.flush();
+  assert.equal((await repo.readSnapshot('test')).run.name, 'recovered');
+  reader.dispose(); await f.store.close();
+});
+
+test('renaming a saved experiment preserves measurements and analysis and validates before mutation', async () => {
+  const f = await fixture(); f.accept(0); f.accept(1000);
+  const work = createWorkspace({ store: f.store }); work.exclude([1], '확인');
+  await f.session.finish();
+  const before = await f.repo.readSnapshot('test'); await f.store.close();
+  const reopened = await openRunStore({ repository: f.repo, id: 'test', locks: locks(), timers });
+  for (const name of ['', '   ', 'a'.repeat(121)]) assert.throws(() => reopened.updateRun({ name }), /1~120자/);
+  assert.equal(reopened.getRun().name, before.run.name);
+  reopened.updateRun({ name: '  온도와 압력 탐구  ' }); await reopened.close();
+  const after = await f.repo.readSnapshot('test');
+  assert.equal(after.run.name, '온도와 압력 탐구');
+  assert.deepEqual(after.samples, before.samples); assert.deepEqual(after.events, before.events);
+  assert.deepEqual(after.workspace, before.workspace); assert.equal(after.run.status, before.run.status);
+});
+
 test('Workspace persists through RunStore and reopens the same scope while later measurements remain new', async () => {
   const f = await fixture();
   assert.equal(f.store.getLatestSample(), null);

@@ -222,6 +222,9 @@ document.getElementById('test').addEventListener('click', async () => {
     report('통과: 원자료 충돌 시 묶음 전체 취소, 기존 값 보존');
     reader = await openRunStore({ repository: repo, id: snapshot.run.id, timers });
     check(!reader.getState().writable, '두 번째 작성자 차단 실패');
+    let deleteBlocked = false;
+    try { await reader.remove(); } catch { deleteBlocked = true; }
+    check(deleteBlocked && await repo.readRun(snapshot.run.id), '다른 탭의 실험 삭제 차단 실패');
     report('통과: 같은 실험의 두 번째 작성자는 읽기 전용');
     await reader.close(); await store.close();
     reopened = await openRunStore({ repository: repo, id: snapshot.run.id, timers });
@@ -370,6 +373,21 @@ document.getElementById('test').addEventListener('click', async () => {
     sheet.style.cssText = 'background:white;padding:24px;margin-top:24px;border:1px solid #ddd';
     printImage.style.maxWidth = '100%'; document.getElementById('export-preview').append(sheet);
     report('통과: 근거 그래프와 세 답변의 인쇄 기록 생성·PNG·줄바꿈·HTML을 일반 글로 표시');
+    csvStore.updateRun({ name: '삭제 경계 검사' });
+    let dirtyDeleteBlocked = false;
+    try { await csvStore.remove(); } catch { dirtyDeleteBlocked = true; }
+    check(dirtyDeleteBlocked && await repo.readRun(rangeRead.run.id), '미저장 자료 삭제 차단 실패');
+    await csvStore.flush();
+    const deleting = await repo.readSnapshot(rangeRead.run.id);
+    await csvStore.remove();
+    check(!await repo.readRun(deleting.run.id) && !(await repo.readSamples(deleting.run.id)).length
+      && !(await repo.readEvents(deleting.run.id)).length && !await repo.readWorkspace(deleting.run.id), '연관 자료 삭제 누락');
+    check(!!await repo.readRun(snapshot.run.id), '다른 실험이 삭제됨');
+    let staleBlocked = false;
+    try { await repo.commitBatch({ ...deleting, baseRunRevision: deleting.run.runRevision }); } catch { staleBlocked = true; }
+    check(staleBlocked && !await repo.readRun(deleting.run.id), '삭제 후 오래된 탭의 저장으로 실험 부활');
+    check(!csvStore.getState().writable, '삭제 후 작성 잠금 해제 실패');
+    report('통과: 삭제의 작성 잠금·미저장 차단, 원자료/사건/분석 일괄 삭제·다른 실험 보존·오래된 저장 거부');
   } catch (error) { report(`실패: ${error.message}`); }
   finally { store?.dispose(); reader?.dispose(); reopened?.dispose(); csvStore?.dispose(); repo.close(); }
 });

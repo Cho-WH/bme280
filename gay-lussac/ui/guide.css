@@ -28,6 +28,7 @@
   padding: 9px 4px;
   min-height: 44px;
   justify-content: flex-start;
+  gap: 6px;
   background: transparent;
   color: #718680;
   font-size: inherit;
@@ -35,9 +36,19 @@
   white-space: inherit;
 }
 
-.guide-progress button.past {
+.guide-progress button.completed {
   border-color: #9ab9ae;
 }
+
+.step-check {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  color: var(--teal);
+  visibility: hidden;
+}
+
+.completed .step-check { visibility: visible; }
 
 .guide-progress button[aria-current=step] {
   border-color: var(--teal);
@@ -335,11 +346,25 @@
 }
 
 #restore-view {
-  border-color: transparent;
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  right: 12px;
+  min-height: 36px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 500;
   background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
-#restore-view:hover,.model-toolbar>a:hover {
+#restore-view:hover {
+  background: transparent;
+  color: var(--teal);
+}
+
+.model-toolbar>a:hover {
   background: var(--pale);
 }
 
@@ -453,11 +478,6 @@
 
 #viewer-modes[hidden] {
   display: flex!important;
-  visibility: hidden;
-}
-
-#restore-view[hidden] {
-  display: inline-flex!important;
   visibility: hidden;
 }
 
@@ -607,8 +627,9 @@
   }
 
   .guide-progress li {
-    font-size: 10px;
-    min-width: 36px;
+    flex: 0 0 auto;
+    font-size: 12px;
+    min-width: 76px;
   }
 
   .step-panel {
@@ -640,13 +661,13 @@
 
 @media(max-width:420px) {
   .guide-layout {
-    --guide-toolbar-height: 100px;
+    --guide-toolbar-height: 56px;
   }
 
   .model-toolbar {
     display: grid;
     grid-template-columns: 1fr auto;
-    grid-template-rows: 44px 44px;
+    grid-template-rows: 44px;
     gap: 2px;
   }
 
@@ -660,14 +681,9 @@
     grid-row: 1;
   }
 
-  #restore-view {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
   .model-toolbar>a {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 1;
   }
 }
 

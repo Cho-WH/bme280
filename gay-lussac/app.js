@@ -1,5 +1,6 @@
 import { PROGRAM } from './program-config.js';
 import { STEPS } from './guide/steps.js';
+import { createGuideProgress } from './guide/progress.js';
 import { createViewerAdapter } from './guide/viewer-adapter.js';
 import { createProgrammer } from './guide/programmer-adapter.js';
 import { createTransport } from './measurement/transport.js';
@@ -14,6 +15,8 @@ import { createFileControls } from './ui/file-controls.js';
 import { renderEvents, createEventNoteDialog } from './ui/run-view.js';
 import { createAnalysisView } from './ui/analysis-view.js';
 import { createAdditionalDialog } from './ui/additional-dialog.js';
+import { createDeleteRunDialog } from './ui/delete-run-dialog.js';
+import { createRunNameEditor } from './ui/run-name-editor.js';
 import { createGuideView } from './ui/guide-view.js';
 import { createActionHelp } from './ui/action-help.js';
 import { actionHelpMessages } from './ui/action-help-content.js';
@@ -25,14 +28,18 @@ let monitor = createReceptionMonitor();
 const repository = createRepository({ onUnavailable: storageUnavailable });
 let screen = 'home';
 let stepIndex = 0;
+const guideProgress = createGuideProgress(STEPS);
 let connection = transport.getState();
 let chart;
 let lastChartPaint = 0;
 let routeRequest = 0;
 let runStore = null, session = null, openingRun = null, importingRun = false;
+let deletingRun = false;
+let renamingRun = false;
 let lastEventPaint = -1;
 let chartRange = 'recent';
 const LAST_RUN = 'bme280.gay-lussac.last-run';
+const deleteRunDialog = createDeleteRunDialog($('delete-run-dialog'), deleteSavedRun);
 const analysisView = createAnalysisView(document.querySelector('[data-screen="analysis"]'), { onError: showMessage,
   onExport: (kind, anchor) => fileControls.export(kind, anchor) });
 const fileControls = createFileControls({ getSnapshot: () => runStore?.getSnapshot() ?? null,
@@ -51,6 +58,8 @@ const additionalDialog = createAdditionalDialog($('additional-dialog'), confirma
   if (!canAddMeasurements()) throw new Error('자료가 모두 저장되었는지 확인해 주세요. 다른 탭에서 같은 실험을 열었다면 닫고 다시 시도하세요.');
   session ??= createSession({ store: runStore, monitor });
   session.startAdditional(confirmation);
+  guideProgress.clear(['reception', 'battery', 'placement']);
+  guideView.setCompleted(guideProgress.getCompleted());
   stepIndex = STEPS.findIndex(step => step.id === 'placement');
   navigate('measure'); renderConnection(connection);
 });
@@ -65,7 +74,6 @@ const programmer = createProgrammer({ program: PROGRAM, onState: renderProgram,
 let programState = programmer.getState();
 
 function storageUnavailable(message) {
-  $('storage-capability').textContent = message;
   $('saved-status').textContent = message;
 }
 const guideView = createGuideView({ root: document.querySelector('[data-screen="prepare"]'), steps: STEPS,
@@ -88,7 +96,12 @@ function renderProgram(next) {
   $('skip-program').hidden = next.status === 'success';
   $('skip-program').disabled = next.busy;
   guideView.setBusy(next.busy);
+  if (next.status === 'success') confirmGuideStep('program');
   renderConnection(connection);
+}
+
+function confirmGuideStep(id) {
+  if (guideProgress.confirm(id)) guideView.setCompleted(guideProgress.getCompleted());
 }
 
 function renderStep(focus = false) {
@@ -128,6 +141,11 @@ function renderReadings() {
   const snapshot = monitor.getSnapshot(now);
   const fresh = snapshot.reception.state === 'receiving' && connection.status === 'connected';
   const ready = fresh && snapshot.reception.ready;
+  if (hasLiveSession()) {
+    if (ready) confirmGuideStep('reception');
+    if (fresh && snapshot.battery.armed && snapshot.battery.ready) confirmGuideStep('battery');
+    if (session.getState().placed) confirmGuideStep('placement');
+  }
   $('reception-status').textContent = fresh ? '새 값 수신 중' : snapshot.latest ? '새 값 없음' : '값 대기';
   $('reception-status').dataset.active = fresh;
   const completed = runStore?.getState().runStatus === 'complete';
@@ -185,21 +203,76 @@ function renderReadings() {
 async function listSavedRuns() {
   try {
     await repository.open();
-    $('storage-capability').textContent = '이 브라우저에 저장 · 실험을 옮길 때는 전체 실험 JSON';
     const runs = await repository.listRuns();
     $('saved-runs').replaceChildren();
     $('saved-status').textContent = runs.length ? `${runs.length}개의 실험이 이 브라우저에 저장되어 있어요.`
       : '저장된 실험이 없습니다. 새 실험을 시작하면 여기에 기록이 남아요.';
     for (const run of runs) {
       const li = document.createElement('li');
-      const label = document.createElement('span');
-      label.textContent = `${run.name} · ${run.status === 'complete' ? '측정 완료' : run.status === 'paused' ? '기록 일시정지' : '미완료'} · ${run.lastSavedSampleId}개`;
+      const label = document.createElement('div'); label.className = 'saved-run-detail';
+      const meta = document.createElement('span'); meta.className = 'saved-run-meta';
+      meta.textContent = `${run.status === 'complete' ? '측정 완료' : run.status === 'paused' ? '기록 일시정지' : '미완료'} · ${run.lastSavedSampleId.toLocaleString()}개`;
       const button = document.createElement('button'); button.textContent = '열기';
       button.addEventListener('click', () => { void act(async () => { await openRun(run.id); navigate('analysis'); }); });
-      li.append(label, button);
+      const actions = document.createElement('div'); actions.className = 'saved-run-actions';
+      const remove = document.createElement('button'); remove.textContent = '삭제'; remove.className = 'delete-run';
+      remove.setAttribute('aria-label', `${run.name} 삭제`);
+      remove.addEventListener('click', () => deleteRunDialog.show(run, remove));
+      label.append(createRunNameEditor(run, async name => {
+        await renameSavedRun(run.id, name);
+        remove.setAttribute('aria-label', `${name} 삭제`);
+      }), meta);
+      actions.append(button, remove); li.append(label, actions);
       $('saved-runs').append(li);
     }
   } catch { storageUnavailable('브라우저 저장소를 열지 못했어요. 저장 허용 설정을 확인한 뒤 다시 시도해 주세요.'); }
+}
+
+async function renameSavedRun(id, name) {
+  if (openingRun || importingRun || deletingRun || renamingRun) throw new Error('진행 중인 작업을 마친 뒤 다시 시도해 주세요.');
+  renamingRun = true;
+  const current = id === runStore?.getState().id;
+  let target;
+  try {
+    target = current ? runStore : await openRunStore({ repository, id });
+    target.updateRun({ name });
+    if (current) renderReadings();
+    await target.flush();
+  } finally {
+    if (!current) target?.dispose();
+    renamingRun = false;
+  }
+}
+
+async function deleteSavedRun(run) {
+  if (openingRun || importingRun || deletingRun || renamingRun || programState.busy) throw new Error('진행 중인 작업을 마친 뒤 삭제해 주세요.');
+  const current = run.id === runStore?.getState().id;
+  if (current) assertCanSwitchRun();
+  deletingRun = true;
+  let target;
+  try {
+    target = current ? runStore : await openRunStore({ repository, id: run.id });
+    if (!target.getState().writable) throw new Error('다른 탭에서 이 실험을 사용 중이에요. 그 탭을 닫고 다시 삭제해 주세요.');
+    if (current) await transport.disconnect();
+    await target.remove();
+    if (current) {
+      analysisView.reset(); runStore = null; session = null; monitor = createReceptionMonitor();
+      chart?.dispose(); chart = null; lastEventPaint = -1; lastChartPaint = 0;
+      $('storage-status').textContent = '저장할 실험 없음';
+      $('storage-problem').hidden = $('paused-notice').hidden = true;
+      history.replaceState(null, '', '#/home');
+    }
+    try {
+      if (localStorage.getItem(LAST_RUN) === run.id) localStorage.removeItem(LAST_RUN);
+      sessionStorage.removeItem(`gay-lussac.guide-progress:${run.id}`);
+    } catch { /* Optional UI history does not affect deletion. */ }
+    await listSavedRuns();
+    if (current) await route();
+    showMessage('실험을 삭제했어요.'); $('saved-heading').focus({ preventScroll: true });
+  } finally {
+    if (!current) target?.dispose();
+    deletingRun = false;
+  }
 }
 
 async function route({ focus = true } = {}) {
@@ -221,7 +294,6 @@ async function route({ focus = true } = {}) {
     if (link.dataset.screenLink === screen) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
-  $('connection-tools').hidden = ['home', 'analysis'].includes(screen);
   if (screen === 'prepare') renderStep();
   if (screen === 'measure') {
     try { chart ??= createChartView($('live-chart')); chart.resize(); }
@@ -279,7 +351,10 @@ function renderStorage() {
   }
 }
 function renderRecording(ready) {
-  $('run-tools').hidden = !runStore;
+  $('current-run-summary').hidden = !runStore;
+  $('download-menu-button').closest('.help-action').hidden = !runStore;
+  $('new-run').disabled = !!openingRun || importingRun || deletingRun;
+  if (!runStore) $('additional-measurement').hidden = true;
   if (!runStore) return;
   const saved = runStore.getState();
   const live = session?.getState();
@@ -342,6 +417,7 @@ async function openRun(id, { force = false, fromImport = false } = {}) {
     runStore = next; session = null; monitor = createReceptionMonitor(); lastEventPaint = -1; lastChartPaint = 0;
     chartRange = id ? 'all' : 'recent'; $('chart-range').value = chartRange;
     const run = next.getRun();
+    guideView.setCompleted(guideProgress.open(run.id));
     if (!id || (next.getState().writable && run.status === 'paused' && run.source !== 'import')) session = createSession({ store: next, monitor });
     else if (next.getState().writable && run.status !== 'complete' && run.source !== 'import') {
       const resumedAt = Date.now();
@@ -354,6 +430,8 @@ async function openRun(id, { force = false, fromImport = false } = {}) {
   return openingRun;
 }
 function assertCanSwitchRun(fromImport = false) {
+  if (renamingRun) throw new Error('실험 이름을 저장 중입니다. 잠시 뒤 다시 시도하세요.');
+  if (deletingRun) throw new Error('실험을 삭제 중입니다. 잠시 뒤 다시 시도하세요.');
   if (openingRun || (importingRun && !fromImport)) throw new Error('실험을 여는 중입니다. 잠시 뒤 다시 시도하세요.');
   if (session && session.getState().state !== 'ended') throw new Error('현재 측정을 먼저 마쳐 주세요. 장치 준비와 측정하기는 계속 오갈 수 있어요.');
   if (runStore && runStore.getState().status !== 'clean') throw new Error('미저장 자료가 있어요. 다시 저장한 뒤 실험을 바꿔 주세요.');
@@ -375,9 +453,15 @@ $('start-guide').addEventListener('click', () => { void act(() => startGuide(fal
 $('skip-guide').addEventListener('click', () => { void act(() => startGuide(true)); });
 $('previous-step').addEventListener('click', () => { stepIndex = Math.max(0, stepIndex - 1); renderStep(true); });
 $('next-step').addEventListener('click', () => {
+  if ($('next-step').disabled) return;
+  if (!['program', 'reception', 'battery', 'placement'].includes(STEPS[stepIndex].id)) confirmGuideStep(STEPS[stepIndex].id);
   if (stepIndex < STEPS.length - 1) { stepIndex++; renderStep(true); }
-  else { session?.markEvent('placement'); navigate('measure'); }
+  else { if (session?.markEvent('placement')) confirmGuideStep('placement'); navigate('measure'); }
 });
+document.querySelectorAll('[data-guide-connection]').forEach(button => button.addEventListener('click', () => {
+  stepIndex = STEPS.findIndex(step => step.id === 'reception');
+  if (screen === 'prepare') renderStep(true); else navigate('prepare');
+}));
 $('connect').addEventListener('click', () => {
   if (!hasLiveSession() || !canConnectSource()) return;
   void transport.connect(PROGRAM.profile, (input) => { session?.acceptInput(input); }, renderConnection);
@@ -398,7 +482,6 @@ $('skip-program').addEventListener('click', () => {
   stepIndex = STEPS.findIndex(step => step.id === 'reception'); renderStep(true);
 });
 $('confirm-battery').addEventListener('click', () => { monitor.confirmBattery(performance.now()); renderReadings(); });
-$('open-saved').addEventListener('click', () => { void listSavedRuns(); $('saved-status').scrollIntoView({ block: 'nearest' }); });
 $('new-run').addEventListener('click', () => { void act(async () => { await openRun(null); navigate('prepare'); }); });
 $('retry-lock').addEventListener('click', () => { void act(async () => {
   const id = runStore.getState().id;

@@ -81,6 +81,23 @@ export function createRepository({ onUnavailable = () => {}, databaseName = DATA
   }
   return {
     open, readSnapshot, commitBatch,
+    async deleteRun(id) {
+      await open();
+      const tx = database.transaction(['runs', 'samples', 'events', 'workspaces'], 'readwrite');
+      try {
+        for (const name of ['samples', 'events']) {
+          let cursor = await tx.objectStore(name).index('runId').openCursor(id);
+          while (cursor) { await cursor.delete(); cursor = await cursor.continue(); }
+        }
+        await tx.objectStore('workspaces').delete(id);
+        await tx.objectStore('runs').delete(id);
+        await tx.done;
+      } catch (error) {
+        try { tx.abort(); } catch { /* Already aborted. */ }
+        await tx.done.catch(() => {});
+        throw error;
+      }
+    },
     async listRuns() { return (await read('runs')).sort((a, b) => b.updatedAt - a.updatedAt); },
     readRun: (id) => read('runs', id),
     readSamples: (id) => read('samples', id, 'runId'),
