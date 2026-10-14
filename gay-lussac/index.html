@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="./ui/analysis.css">
   <link rel="stylesheet" href="./ui/reflection.css">
   <link rel="stylesheet" href="./ui/action-help.css">
+  <link rel="stylesheet" href="./ui/experiment-guide.css">
   <script defer src="../vendor/chart.umd.js"></script>
   <script defer src="./vendor/idb-8.0.4.umd.js"></script>
   <script defer src="./vendor/papaparse-5.7.0.min.js"></script>
@@ -124,7 +125,7 @@
     </section>
 
     <section data-screen="measure" hidden>
-      <div class="section-heading"><div><p class="eyebrow">02 / 측정하기</p><h1 tabindex="-1">온도와 압력이 보내는 신호</h1></div><a href="#/prepare">장치 준비 다시 보기 ↗</a></div>
+      <div class="section-heading"><div><p class="eyebrow">02 / 측정하기</p><h1 tabindex="-1">온도와 압력이 보내는 신호</h1></div><div class="measurement-heading-actions"><button id="show-experiment-guide" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14m0-14C9 4 5 4 2 5v15c3-1 7-1 10 1 3-2 7-2 10-1V5c-3-1-7-1-10 2Z"/></svg>실험 방법 보기</button><a href="#/prepare">장치 준비 다시 보기 ↗</a></div></div>
       <p id="measurement-guidance" class="notice">새 측정값을 기다려요. 준비 구간부터 자동으로 기록합니다.</p>
       <section class="chart-panel measurement-panel" aria-labelledby="chart-heading">
         <div class="measurement-readings" aria-label="현재 측정값">
@@ -227,6 +228,34 @@
       <details class="event-log"><summary>조작·수신 기록</summary><ol id="analysis-events"></ol></details>
     </section>
   </main>
+  <dialog id="experiment-guide" class="experiment-guide" aria-labelledby="experiment-guide-title">
+    <header class="experiment-guide-header">
+      <div><p class="experiment-guide-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14m0-14C9 4 5 4 2 5v15c3-1 7-1 10 1 3-2 7-2 10-1V5c-3-1-7-1-10 2Z"/></svg>실험 방법</p><h2 id="experiment-guide-title" tabindex="-1">밀폐한 공기를 천천히 데워 봐요</h2></div>
+      <button type="button" class="experiment-guide-close" data-close-guide aria-label="실험 방법 닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    </header>
+    <nav class="experiment-guide-pages" aria-label="실험 방법 단계"><button type="button" data-guide-page-button="0" aria-controls="experiment-guide-initial" aria-current="step"><span>1</span>처음 값</button><button type="button" data-guide-page-button="1" aria-controls="experiment-guide-heat"><span>2</span>데우기</button><button type="button" data-guide-page-button="2" aria-controls="experiment-guide-record"><span>3</span>변화 기록</button><button type="button" data-guide-page-button="3" aria-controls="experiment-guide-analyze"><span>4</span>자료 살피기</button></nav>
+    <div class="experiment-guide-body" data-guide-body>
+      <section id="experiment-guide-initial" class="experiment-guide-page" data-guide-page aria-labelledby="experiment-guide-initial-title">
+        <figure class="experiment-guide-visual"><img class="experiment-guide-image" src="./assets/experiment-preparation.png" width="1254" height="1254" decoding="async" alt="수조에 반쯤 잠겨 고정된 밀폐 용기와 옆에 준비한 전기 포트. 용기 안 바닥에는 마이크로비트와 배터리, 중간 높이에는 센서가 있고 모든 배선은 안에 있습니다."><figcaption>수조 속 용기 · 용기 안 공기 중의 센서</figcaption></figure>
+        <div class="experiment-guide-copy"><p class="eyebrow">STEP 01</p><h3 id="experiment-guide-initial-title">실험 전, 준비 상태를 확인해요</h3><ol class="experiment-guide-instructions"><li><h4>장치를 고정해요</h4><p>뚜껑을 닫고 용기가 뜨거나 기울지 않게 고정해요. 센서는 용기 안 공기 중에 두고, 벽·물·다른 부품에 닿지 않게 해요.</p></li><li><h4>통신 상태를 확인해요</h4><p>측정 화면에서 <strong>센서 온도</strong>와 <strong>용기 안 압력</strong>이 표시되고, <strong>수신 중</strong>인지 확인해요. 값이 없다면 <strong>통신 연결</strong>에서 연결을 확인해요.</p></li><li><h4>두 가지 물을 준비해요</h4><p>수조 안에 상온의 물을 채워 용기가 반쯤 잠기게 해요. 그리고 전기 포트에 뜨거운 물을 준비하세요. 안전에 항상 주의해야 해요!</p></li></ol></div>
+      </section>
+      <section id="experiment-guide-heat" class="experiment-guide-page" data-guide-page aria-labelledby="experiment-guide-heat-title" hidden>
+        <figure class="experiment-guide-visual"><img class="experiment-guide-image" src="./assets/experiment-heating.png" width="1254" height="1254" decoding="async" alt="반쯤 물에 잠긴 밀폐 용기 옆의 빈 수조 공간에 전기 포트로 물을 붓는 모습. 옆의 가열 시작 표시는 버튼 모양의 안내 그림입니다."><figcaption>물 넣는 위치 · 가열 시작 버튼</figcaption></figure>
+        <div class="experiment-guide-copy"><p class="eyebrow">STEP 02</p><h3 id="experiment-guide-heat-title">수조에 따뜻한 물을 더하며 데워요</h3><ol class="experiment-guide-instructions"><li><h4>물은 용기 밖에 넣어요</h4><p>밀폐 용기의 뚜껑은 닫아 둔 채, <strong>바깥 수조에 따뜻한 물을 조금씩</strong> 더해요. 따뜻한 물은 용기에 직접 붓지 말고 수조의 빈 공간에 조금씩 넣어요. 물이 용기 안으로 들어가지 않게 해요.</p></li><li><h4>데우기 시작한 시각을 남겨요</h4><p>가열하기 전 화면의 센서 온도를 시작 온도로 확인해요. 처음 물을 넣어 데우기 시작할 때 <strong>가열 시작</strong>을 눌러 시작 시각을 기록해요.</p></li><li><h4>일정한 간격으로 뜨거운 물을 조금씩 부어요</h4><p>센서 온도가 천천히 오르도록 물을 조금씩 더하고, 압력이 어떻게 변하는지 관찰해요. 부력으로 용기가 넘어지지 않도록 주의해요.</p></li></ol><p class="experiment-guide-range"><strong>관찰 목표: 시작보다 약 10℃ 높아질 때까지</strong><span>화면에 표시되는 센서 온도를 기준으로 해요. 아래 주의 기준에 먼저 도달하면 목표 온도까지 올리지 않고 가열을 멈춰요.</span></p></div>
+      <p class="experiment-guide-caution"><strong>가열할 때 주의해요.</strong> 센서 온도가 <strong>45℃ 이상</strong>이거나 압력이 <strong>1100 hPa 이상</strong>이면 가열을 멈추고 식혀요. 뜨거운 물과 용기는 맨손으로 만지지 않아요.</p>
+      </section>
+      <section id="experiment-guide-record" class="experiment-guide-page" data-guide-page aria-labelledby="experiment-guide-record-title" hidden>
+        <figure class="experiment-guide-visual"><img class="experiment-guide-image" src="./assets/experiment-recording.png" width="1254" height="1254" decoding="async" alt="온도와 압력의 시간 그래프 아래 물 추가·장치 변화 버튼, 물 추가 기록 옆 메모 추가 버튼을 단순화한 안내 그림입니다."><figcaption>물 추가 → 조작·수신 기록 → 메모 추가</figcaption></figure>
+        <div class="experiment-guide-copy"><p class="eyebrow">STEP 03</p><h3 id="experiment-guide-record-title">실험 수행 기록을 남겨요</h3><ol class="experiment-guide-instructions"><li><h4>물을 더할 때마다 눌러요</h4><p>가열 중 수조에 물을 더하면 그때마다 <strong>물 추가</strong>를 눌러 시각을 남겨요. 기록 중인 온도·압력과 나중에 함께 비교할 수 있어요.</p></li><li><h4>장치 특이사항도 기록해요</h4><p>용기가 움직이거나 뚜껑을 건드렸다면 <strong>장치 변화</strong>를 눌러요. 해당 변화를 고르고, 필요하면 메모한 뒤 <strong>기록하기</strong>를 눌러요.</p></li><li><h4>특이사항도 메모해요</h4><p>아래의 <strong>조작·수신 기록</strong>을 펼쳐요. 해당 기록 옆 <strong>메모 추가</strong>에서 관찰한 변화나 물을 더한 상황을 적고 <strong>저장</strong>을 눌러요. 이런 기록은 나중에 실험 결과를 분석하거나 오차를 해석할 때 큰 도움이 돼요.</p></li></ol></div>
+      </section>
+      <section id="experiment-guide-analyze" class="experiment-guide-page" data-guide-page aria-labelledby="experiment-guide-analyze-title" hidden>
+        <figure class="experiment-guide-visual"><img class="experiment-guide-image" src="./assets/experiment-analysis.png" width="1254" height="1254" decoding="async" alt="시간 그래프에서 양 끝 손잡이로 구간을 고르고, 온도–압력 산점도의 추세선을 가로축까지 연장해 x절편을 살펴보는 안내 그림. 구간 손잡이와 추세선 스위치는 설명용 표시입니다."><figcaption>원 자료 보기 → 전체 또는 구간 선택 → 관계 그래프</figcaption></figure>
+        <div class="experiment-guide-copy"><p class="eyebrow">STEP 04</p><h3 id="experiment-guide-analyze-title">모은 자료를 그래프로 살펴봐요</h3><ol class="experiment-guide-instructions"><li><h4>분석 화면으로 이동해요</h4><p><strong>분석하러 가기</strong>를 누르면 측정을 이어가며 자료를 볼 수 있어요. <strong>원 자료 보기</strong>에서 온도와 압력의 변화를 살펴봐요. <strong>구간 골라 분석하기</strong>를 누르고 양 끝 손잡이를 조절한 뒤 <strong>이 구간으로 분석</strong>을 눌러요. 전체를 쓰려면 <strong>전체 자료로 관계 보기</strong>를 선택해요.</p></li><li><h4>데이터를 분석해요</h4><p><strong>관계 그래프</strong>에서, <strong>추세선</strong>을 누르면 선택한 구간 데이터의 경향성을 볼 수 있어요. <strong>추세선 연장</strong>을 누르면 선을 연장해서 x절편도 확인해볼 수 있어요.</p></li><li><h4>측정을 마무리하고 해석해요</h4><p>분석 중 더 모인 값은 <strong>새 자료 반영</strong>으로 불러와요. 실험을 끝낼 때는 물을 더 넣는 것을 멈추고, <strong>측정 마치기</strong>를 눌러 기록을 마쳐요. <strong>결과 해석</strong>에 탐구를 통해 알게 된 내용을 정리해 보세요.</p></li></ol></div>
+      </section>
+
+    </div>
+    <footer class="experiment-guide-footer"><div class="experiment-guide-paging"><button type="button" data-guide-previous disabled><span aria-hidden="true">←</span> 이전</button><span class="experiment-guide-count" data-guide-count aria-live="polite" aria-atomic="true">1 / 4</span><button type="button" class="primary" data-guide-next><span data-guide-next-label>다음</span><span aria-hidden="true">→</span></button></div><div class="experiment-guide-options"><label class="experiment-guide-preference"><input type="checkbox" data-suppress-guide>다시 보지 않기</label><p class="experiment-guide-recording" data-guide-recording hidden>안내를 보는 동안에도 측정값은 기록돼요.</p></div></footer>
+  </dialog>
   <dialog id="delete-run-dialog" class="file-dialog" aria-labelledby="delete-run-title" aria-describedby="delete-run-description">
     <form>
       <h2 id="delete-run-title">이 실험을 삭제할까요?</h2>

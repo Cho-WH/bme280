@@ -49,6 +49,8 @@ Workspace가 작업을 수정하면 변경 처리 안에서 RunStore에 **해당
 | `guide/steps.js`, `guide/viewer-adapter.js` | 단계 설정, 기존 3D 프레임의 메시지 계약 | 현재 안내·모델 적용 상태 |
 | `guide/programmer-adapter.js` | 프로그램 설정, 공식 USB·HEX 라이브러리, 주입받은 전송 전 행동 | 진행률·완료·실패 상태. BLE·측정 상태를 직접 소유하지 않음 |
 | `ui/guide-view.js` | 전달받은 단계·설치 중 여부·뷰어 상태, 준비 화면 DOM, `guide-layout.js` | `render / setBusy / setViewerState / dispose`, 사용자 행동 콜백 |
+| `ui/experiment-guide.js` | 안내 dialog DOM, `guide/experiment-guide-preferences.js` | 최초/수동 표시·네 페이지의 이전/다음/직접 이동·전환·닫기·초점·기록 중 표시·해제. 현재 페이지는 뷰의 임시 상태. 앱이 배치 후 화면 전환과 현재 수신/기록 여부를 전달하며 세션을 조작하지 않음 |
+| `guide/experiment-guide-preferences.js` | 브라우저 localStorage 또는 주입한 저장소, 메모리 대체 | 실험별 열람 이력과 공통 자동 표시 설정. 실험 DB·파일·준비 단계의 완료 상태와 독립 |
 | `ui/guide-layout.js` | 전달받은 측정 대상과 비활성 표시 요소 생성 함수, DOM 크기·ResizeObserver·애니메이션 | 배선 설명 최소 높이, 선택 표시 위치, 설명 전환. 장치·저장소·앱 상태를 참조하지 않음 |
 | `analysis/workspace.js` | RunStore의 읽기 스냅샷·`saveWorkspace()` | 표 범위·선택·적용·제외의 단일 변경 경로, revision, 작업 되돌리기 |
 | `analysis/table-data.js` | 샘플과 직렬화 가능한 작업 정의 | 필터 검증·호환 범위 해석, 정렬·필터를 반영한 표 행과 분석 대상 요약. 원자료 불변 |

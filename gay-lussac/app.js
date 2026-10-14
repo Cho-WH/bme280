@@ -19,10 +19,13 @@ import { createDeleteRunDialog } from './ui/delete-run-dialog.js';
 import { createRunNameEditor } from './ui/run-name-editor.js';
 import { createGuideView } from './ui/guide-view.js';
 import { createActionHelp } from './ui/action-help.js';
+import { createExperimentGuide } from './ui/experiment-guide.js';
 import { actionHelpMessages } from './ui/action-help-content.js';
 
 const $ = (id) => document.getElementById(id);
 const actionHelp = createActionHelp(document.body, { messages: actionHelpMessages });
+const experimentGuide = createExperimentGuide($('experiment-guide'));
+let pendingGuideRunId = null;
 const transport = createTransport();
 let monitor = createReceptionMonitor();
 const repository = createRepository({ onUnavailable: storageUnavailable });
@@ -141,6 +144,7 @@ function renderReadings() {
   const now = performance.now();
   const snapshot = monitor.getSnapshot(now);
   const fresh = snapshot.reception.state === 'receiving' && connection.status === 'connected';
+  experimentGuide.setRecording(fresh && canRecord());
   const ready = fresh && snapshot.reception.ready;
   if (hasLiveSession()) {
     if (ready) confirmGuideStep('reception');
@@ -269,6 +273,7 @@ async function deleteSavedRun(run) {
       if (localStorage.getItem(LAST_RUN) === run.id) localStorage.removeItem(LAST_RUN);
       sessionStorage.removeItem(`gay-lussac.guide-progress:${run.id}`);
     } catch { /* Optional UI history does not affect deletion. */ }
+    experimentGuide.forget(run.id);
     await listSavedRuns();
     if (current) await route();
     showMessage('실험을 삭제했어요.'); $('saved-heading').focus({ preventScroll: true });
@@ -279,6 +284,7 @@ async function deleteSavedRun(run) {
 }
 
 async function route({ focus = true } = {}) {
+  experimentGuide.close();
   const request = ++routeRequest;
   const [path, query = ''] = location.hash.slice(2).split('?');
   screen = ['home', 'prepare', 'measure', 'analysis'].includes(path) ? path : 'home';
@@ -308,6 +314,10 @@ async function route({ focus = true } = {}) {
   syncRunLinks();
   renderConnection(connection);
   if (focus) document.querySelector(`[data-screen="${screen}"] h1`).focus({ preventScroll: true });
+  if (screen === 'measure' && pendingGuideRunId === runStore?.getState().id) {
+    experimentGuide.show({ runId: pendingGuideRunId, automatic: true, anchor: $('show-experiment-guide') });
+  }
+  pendingGuideRunId = null;
 }
 function navigate(target) {
   const suffix = runStore ? `?run=${encodeURIComponent(runStore.getState().id)}` : '';
@@ -391,6 +401,7 @@ function renderRecording(ready) {
   $('finish-run-label').textContent = live?.state === 'finishing' ? '저장 다시 시도' : '측정 마치기';
   $('measurement-guidance').textContent = live ? measurementGuidance(live, ready)
     : saved.runStatus === 'complete' ? '측정을 마친 실험입니다. 자료를 분석하거나 위의 추가 측정으로 기록을 이어가세요.' : '이어 측정을 선택하면 마지막 자료 다음부터 기록합니다.';
+  $('measurement-guidance').hidden = !$('measurement-guidance').textContent;
   if (lastEventPaint !== saved.eventsVersion) renderEventLists();
   renderStorage();
 }
@@ -460,7 +471,15 @@ $('next-step').addEventListener('click', () => {
   if ($('next-step').disabled) return;
   if (!['program', 'reception', 'battery', 'placement'].includes(STEPS[stepIndex].id)) confirmGuideStep(STEPS[stepIndex].id);
   if (stepIndex < STEPS.length - 1) { stepIndex++; renderStep(true); }
-  else { if (session?.markEvent('placement')) confirmGuideStep('placement'); navigate('measure'); }
+  else {
+    if (session?.markEvent('placement')) confirmGuideStep('placement');
+    if (session?.getState().placed) pendingGuideRunId = runStore.getState().id;
+    navigate('measure');
+  }
+});
+$('show-experiment-guide').addEventListener('click', () => {
+  actionHelp.close();
+  experimentGuide.show({ runId: runStore?.getState().id, anchor: $('show-experiment-guide') });
 });
 document.querySelectorAll('[data-guide-connection]').forEach(button => button.addEventListener('click', () => {
   stepIndex = STEPS.findIndex(step => step.id === 'reception');
@@ -544,7 +563,7 @@ window.addEventListener('beforeunload', (event) => {
 });
 window.addEventListener('pagehide', () => {
   // A hidden screen doesn't end the connection; leaving the document does.
-  clearInterval(tick); actionHelp.dispose(); fileControls.dispose(); guideView.dispose(); analysisView.dispose(); runStore?.dispose(); viewer.dispose(); chart?.dispose(); repository.close(); void transport.disconnect(); void programmer.dispose();
+  clearInterval(tick); actionHelp.dispose(); experimentGuide.dispose(); fileControls.dispose(); guideView.dispose(); analysisView.dispose(); runStore?.dispose(); viewer.dispose(); chart?.dispose(); repository.close(); void transport.disconnect(); void programmer.dispose();
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) void runStore?.flush().catch(() => {}); });
 window.addEventListener('pageshow', (event) => { if (event.persisted) location.reload(); });

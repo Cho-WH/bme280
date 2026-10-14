@@ -9,12 +9,65 @@ import { importRun } from '../data/import-run.js';
 import { createAnalysisChart, exportAnalysisPng } from '../ui/chart-view.js';
 import { createReflectionPrint } from '../ui/reflection-view.js';
 import { createActionHelp } from '../ui/action-help.js';
+import { createExperimentGuide } from '../ui/experiment-guide.js';
+import { createExperimentGuidePreferences } from '../guide/experiment-guide-preferences.js';
 
 const timers = { setTimeout: () => 1, clearTimeout() {} };
 const check = (condition, message) => { if (!condition) throw new Error(message); };
 const at = 1700000000000;
 const reading = ms => ({ ...decode(`${25 + ms / 20000},0,${1000 + ms / 6000}`, PROGRAM.profile),
   attemptId: 1, receivedAt: at + ms, monotonicAt: ms });
+
+async function checkExperimentGuide(report) {
+  const fixture = document.createElement('section');
+  // Exercise the production markup without changing the user's guide preferences.
+  const markup = new DOMParser().parseFromString(await (await fetch('../index.html')).text(), 'text/html');
+  const dialog = document.importNode(markup.getElementById('experiment-guide'), true);
+  const anchor = document.createElement('button'); anchor.textContent = '실험 방법 검사';
+  fixture.append(anchor, dialog); document.body.append(fixture);
+  const preferences = createExperimentGuidePreferences(() => undefined);
+  const guide = createExperimentGuide(dialog, { preferences });
+  const close = () => new Promise(resolve => { dialog.addEventListener('close', resolve, { once: true }); dialog.close(); });
+  try {
+    check(guide.show({ runId: 'one', automatic: true, anchor }) && dialog.open, '최초 안내 자동 표시 실패');
+    check(document.activeElement === dialog.querySelector('h2'), '안내 제목으로 초점 이동 실패');
+    const pages = [...dialog.querySelectorAll('[data-guide-page]')];
+    const pageButtons = [...dialog.querySelectorAll('[data-guide-page-button]')];
+    const next = dialog.querySelector('[data-guide-next]');
+    const previous = dialog.querySelector('[data-guide-previous]');
+    const activePage = index => pages.every((page, i) => page.hidden === (i !== index));
+    check(activePage(0) && previous.disabled, '첫 페이지와 이전 버튼 경계 불일치');
+    next.click(); next.click();
+    check(activePage(2) && pageButtons[2].getAttribute('aria-current') === 'step', '다음 페이지/단계 표시 불일치');
+    previous.click(); check(activePage(1), '이전 페이지 이동 실패');
+    pageButtons[3].click();
+    check(activePage(3) && next.textContent.includes('측정하러 가기'), '직접 이동/마지막 버튼 표시 실패');
+    pageButtons[3].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    check(activePage(2) && document.activeElement === pageButtons[2], '단계 버튼 방향키/초점 이동 실패');
+    pageButtons[3].click();
+    await new Promise(resolve => { dialog.addEventListener('close', resolve, { once: true }); next.click(); });
+    check(!dialog.open && document.activeElement === anchor, '마지막 페이지 닫기/초점 복귀 실패');
+    guide.show({ runId: 'one', anchor });
+    check(activePage(0), '다시 열면 첫 페이지로 돌아가야 함');
+    guide.setRecording(true);
+    check(!dialog.querySelector('[data-guide-recording]').hidden, '기록 중 안내 표시 실패');
+    guide.setRecording(false);
+    check(dialog.querySelector('[data-guide-recording]').hidden, '수신/기록 중단 시 안내 갱신 실패');
+    await close();
+    check(document.activeElement === anchor, '다시 보기 버튼으로 초점 복귀 실패');
+    check(!guide.show({ runId: 'one', automatic: true, anchor }), '같은 실험에서 자동 안내 반복');
+    check(guide.show({ runId: 'one', anchor }), '실험 방법 다시 보기 실패');
+    const checkbox = dialog.querySelector('[data-suppress-guide]'); checkbox.click();
+    await close();
+    check(!guide.show({ runId: 'two', automatic: true, anchor }), '새 실험 자동 표시 끄기 실패');
+    check(guide.show({ runId: 'two', anchor }) && checkbox.checked, '자동 표시를 꺼도 수동으로 열 수 있어야 함');
+    checkbox.click(); await close();
+    check(guide.show({ runId: 'three', automatic: true, anchor }), '자동 표시 다시 켜기 실패');
+    guide.dispose();
+    check(!dialog.open, '화면 해제 시 안내 닫기 실패');
+    report('통과: 실험 방법 4페이지 이전/다음/직접/방향키 이동·재열기 초기화·최초 표시·설정·초점·수신 안내·해제');
+  } finally { guide.dispose(); fixture.remove(); }
+}
 
 async function checkChartResize(report) {
   const host = document.createElement('div'), canvas = document.createElement('canvas');
@@ -198,6 +251,7 @@ document.getElementById('test').addEventListener('click', async () => {
   const repo = createRepository({ databaseName: 'bme280.gay-lussac.tests' });
   let store, reader, reopened, csvStore;
   try {
+    await checkExperimentGuide(report);
     await checkActionHelp(report);
     await checkChartResize(report);
     await checkLegacyUpgrade();
