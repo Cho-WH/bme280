@@ -1,3 +1,4 @@
+import { timeGraphData } from '../analysis/time-series.js';
 import { positionPopover } from './anchored-popover.js';
 import { createWorkspace } from '../analysis/workspace.js';
 import { createColumnFilters } from './column-filters.js';
@@ -159,8 +160,8 @@ export function createAnalysisView(root, { onError, onExport = () => {} }) {
   click('point-restore', () => act(() => workspace.restore([focusedId])));
   root.addEventListener('keydown', event => { if (event.key === 'Escape' && focusedId !== null && !root.querySelector(':popover-open, dialog[open]')) closePoint(); }, { signal });
   for (const button of root.querySelectorAll('[data-export]')) button.addEventListener('click', () => { if (reflection.flush()) onExport(button.dataset.export, button); }, { signal });
-  function renderPoint(state, rows) {
-    const samples = workspace?.getSamples() ?? [], sample = samples.find(s => s.sampleId === focusedId);
+  function renderPoint(state, rows, samples) {
+    const sample = samples.find(s => s.sampleId === focusedId);
     const inspector = $('point-inspector'), host = $(tableOpen ? 'table-point-slot' : 'graph-point-slot');
     $('graph-point-slot').hidden = tableOpen;
     for (const slot of [$('table-point-slot'), $('graph-point-slot')]) slot.dataset.active = String(slot === host && Boolean(sample));
@@ -191,11 +192,11 @@ export function createAnalysisView(root, { onError, onExport = () => {} }) {
   function render({ resetScroll = false } = {}) {
     tableOpen = task === 'overview' ? overviewTableOpen : relationshipMode !== 'graph';
     allColumns = task === 'relationship' && relationshipMode === 'table';
-    const writable = workspace?.isWritable() ?? false;
+    const viewModel = workspace?.getViewModel(), writable = viewModel?.writable ?? false;
     root.querySelectorAll('[data-workspace-action]').forEach(el => { el.disabled = !writable; });
-    const state = workspace?.getState(), summary = workspace?.getSummary(), rows = workspace?.getRows() ?? [], samples = workspace?.getSamples() ?? [];
-    currentModel = workspace?.getGraphData() ?? null;
-    const importedColumns = workspace?.getImportedColumns() ?? [], axisIds = task !== 'overview' && !allColumns && currentModel ? [currentModel.xColumnId, currentModel.yColumnId, ...(revealedColumnId ? [revealedColumnId] : [])] : null;
+    const state = viewModel?.state, summary = viewModel?.summary, rows = viewModel?.rows ?? [], samples = viewModel?.samples ?? [];
+    currentModel = viewModel?.graph ?? null;
+    const importedColumns = viewModel?.importedColumns ?? [], axisIds = task !== 'overview' && !allColumns && currentModel ? [currentModel.xColumnId, currentModel.yColumnId, ...(revealedColumnId ? [revealedColumnId] : [])] : null;
     root.dataset.task = task; $('analysis-layout').dataset.tableOpen = String(tableOpen);
     $('analysis-layout').dataset.tableOnly = String(task === 'relationship' && allColumns);
     root.querySelector('.analysis-tabs').style.setProperty('--active-tab', ['overview', 'relationship', 'interpretation'].indexOf(task));
@@ -239,7 +240,7 @@ export function createAnalysisView(root, { onError, onExport = () => {} }) {
       filter: state?.table.filter, sort: state?.table.sort ?? { columnId: 'sampleId', direction: 'asc' }, canEdit: writable, resetScroll });
     graph.render(state, currentModel, task === 'relationship' && !allColumns, writable, focusedId);
     $('use-graph-for-reflection').disabled = !writable || !currentModel?.points.length;
-    reflection.render(task === 'interpretation');
+    reflection.render(task === 'interpretation', viewModel);
     if (task === 'overview' && workspace) {
       overview ??= createChartView($('overview-chart'), { inspect: true, onLayout: () => range.layout(), onCursor(sample, elapsedSeconds) {
         $('overview-readout').textContent = sample ? formatElapsedTime(elapsedSeconds)
@@ -248,12 +249,12 @@ export function createAnalysisView(root, { onError, onExport = () => {} }) {
           : '그래프 위에서 같은 시점의 두 값을 확인할 수 있어요.';
       } });
       const key = state.runId + ':' + state.tableLastSampleId;
-      if (overviewKey !== key) { overview.render(samples, 0, { range: 'all' }); overviewKey = key; }
+      if (overviewKey !== key) { overview.render(timeGraphData(samples, 0, { range: 'all' })); overviewKey = key; }
       overview.resize(); range.layout();
     }
     $('overview-empty').hidden = samples.length > 0;
     if (state) range.update(samples, state);
-    renderPoint(state, rows);
+    renderPoint(state, rows, samples);
     for (const button of root.querySelectorAll('[data-export]'))
       button.disabled = !workspace || (button.dataset.export === 'analysis-csv' && !summary?.includedCount) || (button.dataset.export === 'png' && !currentModel);
     updateStatus();

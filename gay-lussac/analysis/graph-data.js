@@ -1,6 +1,6 @@
 import { graphColumns } from '../data/contracts.js';
 import { columnLabel } from './calculations.js';
-import { CONNECTION } from '../program-config.js';
+import { breaksTimeLine } from './time-series.js';
 import { scopeMembership } from './scope.js';
 
 function value(sample, id) {
@@ -29,8 +29,7 @@ export function graphData(samples, state, imported = []) {
     if (excluded.has(sample.sampleId)) {
       excludedPoints.push(point); line.push({ x, y: null }); previous = null; continue;
     }
-    if (previous && (sample.receivedAt < previous.receivedAt
-      || (!graph.connectGaps && sample.receivedAt - previous.receivedAt >= CONNECTION.staleMs))) line.push({ x, y: null });
+    if (breaksTimeLine(previous?.receivedAt, sample.receivedAt, { connectGaps: graph.connectGaps })) line.push({ x, y: null });
     points.push(point); line.push(point); previous = { x, receivedAt: sample.receivedAt };
   }
   return { ...graph, points, excludedPoints, line, invalidCount, candidateCount, excludedCount, includedCount: candidateCount - excludedCount,

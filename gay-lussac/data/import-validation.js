@@ -1,7 +1,5 @@
-import { SOURCE_COLUMNS, validateCalculatedColumns, validateGraph, validateImportedColumns } from './contracts.js';
-import { normalizeFilter } from '../analysis/table-data.js';
-import { validateAnalysisRange } from '../analysis/scope.js';
-import { validateReflection } from '../analysis/reflection.js';
+import { validateImportedColumns } from './contracts.js';
+import { restoreWorkspace } from '../analysis/workspace-state.js';
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const integer = value => Number.isSafeInteger(value) && value >= 0;
@@ -51,26 +49,6 @@ export function validateExperimentSnapshot(input) {
   for (const [key, max] of [['lastSavedSampleId', samples.length], ['lastSavedEventId', events.length]])
     requireValue(integer(run[key]) && run[key] <= max, '저장 위치가 원자료·사건 범위를 벗어납니다.');
   if (work == null) { snapshot.workspace = null; return snapshot; }
-  requireValue(object(work) && work.runId === run.id && integer(work.workspaceRevision)
-    && integer(work.analysisInputRevision) && work.analysisInputRevision <= work.workspaceRevision
-    && integer(work.tableLastSampleId) && work.tableLastSampleId <= samples.length
-    && ['all', 'selection'].includes(work.appliedScope) && typeof work.note === 'string', '분석 작업 정보가 올바르지 않습니다.');
-  const ids = values => Array.isArray(values) && values.every(id => Number.isSafeInteger(id) && id > 0 && id <= work.tableLastSampleId)
-    && new Set(values).size === values.length;
-  requireValue(ids(work.selectedIds) && ids(work.appliedIds), '선택·분석 대상에 없는 자료 ID가 있습니다.');
-  work.analysisRange = validateAnalysisRange(work.analysisRange, samples, work);
-  work.reflection = validateReflection(work.reflection, samples, imported);
-  delete work.interpretation;
-  requireValue(Array.isArray(work.exclusions) && ids(work.exclusions.map(e => e?.sampleId))
-    && work.exclusions.every(e => typeof e.reason === 'string' && e.reason.length <= 200), '제외 자료·사유가 올바르지 않습니다.');
-  work.calculatedColumns = validateCalculatedColumns(work.calculatedColumns, imported);
-  work.graph = validateGraph(work.graph, work.calculatedColumns, imported);
-  requireValue(work.regression == null || (object(work.regression) && typeof work.regression.enabled === 'boolean'), '추세선 설정이 올바르지 않습니다.');
-  work.regression = { enabled: work.regression?.enabled === true };
-  requireValue(!work.regression.enabled || work.graph !== null, '추세선의 그래프가 없습니다.');
-  const columnIds = new Set([...SOURCE_COLUMNS, ...imported, ...work.calculatedColumns].map(c => c.id));
-  requireValue(object(work.table) && object(work.table.sort) && columnIds.has(work.table.sort.columnId)
-    && ['asc', 'desc'].includes(work.table.sort.direction), '표 정렬 설정이 올바르지 않습니다.');
-  work.table = { sort: work.table.sort, filter: normalizeFilter(work.table.filter, [...imported, ...work.calculatedColumns]) };
+  snapshot.workspace = restoreWorkspace(work, { runId: run.id, samples, imported });
   return snapshot;
 }

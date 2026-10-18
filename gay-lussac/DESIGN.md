@@ -130,7 +130,7 @@ flowchart TD
 
 ### 4.2 최소 모듈 계약
 
-아래 함수 이름은 구현 시작점이다. 같은 책임을 유지하는 범위에서 파일 내부의 작은 함수를 나눌 수 있다. 전역 이벤트 시스템이나 플러그인 등록 체계는 초기 구조에 필요하지 않다.
+아래는 현재 핵심 모듈의 공개 계약이다. 같은 책임을 유지하는 범위에서 파일 내부의 작은 함수를 나눌 수 있다. 전역 이벤트 시스템이나 플러그인 등록 체계는 초기 구조에 필요하지 않다.
 
 | 위치·모듈 | 주요 계약 | 소유하는 상태 |
 |---|---|---|
@@ -138,11 +138,17 @@ flowchart TD
 | `guide/steps.js`, `guide/viewer-adapter.js` | `getStep(id)`, `applyStep(step)`, `restoreStep()` | 안내 단계와 모델 표시 상태 |
 | `measurement/transport.js` | `connect(profile, onInput, onState, { reuseDevice })`, `disconnect()`, `forgetDevice()` | 장치, 연결 시도 번호, 시작 명령 재시도와 수신 정리 |
 | `measurement/decoder.js` | `decode(line, profile)` | 내부 상태 없이 수치·필드별 유효성 또는 형식 오류 반환 |
-| `measurement/session.js` | `acceptInput(input)`, `markEvent(type, payload)`, `pause()`, `resume()`, `startAdditional()`, `finish()` | 샘플 번호·수신 시각, 기록 정지·재개·입력 마감, 규칙별 상태·평가 일정 |
+| `measurement/controller.js` | `acceptInput()`, `tick()`, `start()`, `dispose()`, `confirmBattery()`, `markEvent()` | 화면과 독립된 평가 일정·준비 진도 확인의 호출 순서. 활성 세션은 주입받으며 화면 전환 시 교체하지 않음 |
+| `measurement/actions.js` | `measurementActions(context)`, `readingStatus(snapshot, connection)` | 숨은 상태 없이 행동 가능 여부·수신 준비 여부 반환. 버튼과 명령이 공유 |
+| `ui/experiment-view.js` | `render(model)`, `renderProgram()`, `renderStorage()`, `renderChart()`, `dispose()` | 연결·측정·저장 DOM, 차트 자원과 표시 주기. 세션·진도·저장 수정 없음 |
+| `measurement/session.js` | `acceptInput(input)`, `markEvent(type, payload)`, `pause()`, `resume()`, `startAdditional()`, `finish()` | 샘플 번호·수신 시각, 기록 정지·재개·입력 마감, 규칙별 상태와 `tick()` 평가 |
 | `diagnostics/` | `step(previousState, input, now, config)` | 숨은 상태 없이 `nextState`와 관측 결과 반환 |
 | `data/run-store.js` | `appendSample()`, `appendEvent()`, `updateEventNote()`, `saveWorkspace()`, `flush()`, `getSnapshot()` | 열린 Run, 사건 ID 할당, 미저장 복사본, 저장 상태·일정·작성 잠금 |
 | `data/repository.js` | `open()`, `readRun()`, `readSamples()`, `readEvents()`, `readWorkspace()`, `commitBatch()` | DB 연결·스키마·인덱스·트랜잭션 |
-| `analysis/workspace.js` | `getRows()`, `getSummary()`, `selectRange()`, `setFilter()`, `setSort()`, `applyScope()`, `exclude()`, `restore()`, `undo()`, `redo()` | 표 범위·체크·후보·제외, 작업·분석 입력 revision, 열린 작업의 이력 |
+| `analysis/workspace-state.js` | `restoreWorkspace(value, { runId, samples, imported })` | 로컬 저장·JSON에 공통인 구형 작업 이행과 검증. 입력을 수정하지 않음 |
+| `analysis/calculation-dependencies.js` | `axisCalculations(graph, columns)` | 기본 축을 포함한 전이 계산 의존 열 탐색. 입력 revision과 근거 캡처에 공통 사용 |
+| `analysis/time-series.js` | `timeGraphData()`, `breaksTimeLine()` | 시간 그래프 좌표·유효성·사건 표시 모델과 시간선 공백/역행 판정 |
+| `analysis/workspace.js` | `getViewModel()`, `getRows()`, `getSummary()`, `selectRange()`, `setFilter()`, `setSort()`, `applyScope()`, `exclude()`, `restore()`, `undo()`, `redo()` | 표 범위·체크·후보·제외, 작업·분석 입력 revision, 열린 작업의 이력 |
 | `analysis/calculations.js` | `createCalculator()`, `calculateValue()`, `presetColumns()` | 숨은 상태 없이 계산 결과·이유 반환, 기본 계산도 같은 정의 사용 |
 | `analysis/regression.js` | `linearFit()`, `fitGraph()`, `trendGeometry()` | 회귀 계수·수치 유효성·초 단위 시간축 변환·실선/연장선 좌표. DOM·저장소 독립 |
 | `data/files.js` | `buildCsv(snapshot)`, `buildAnalysisCsv(snapshot, columnIds)`, `buildExperimentJson(snapshot)`, `parseExperimentJson(text)`, `parseExperimentCsv(text, options)` | CSV·JSON 형식 변환, 분석 범위와 계산 값 투영 |
@@ -150,9 +156,11 @@ flowchart TD
 | `ui/file-controls.js` | `createFileControls()` | 다운로드 메뉴·계산 열 선택·CSV/JSON 파일 선택, 주입받은 스냅샷·가져오기 행동 연결 |
 | `ui/analysis-view.js` | `open(store)`, `updateStatus()`, `reset()`, `dispose()` | 분석 화면·입력과 모듈 연결 |
 | `ui/data-table.js`, `ui/table-header.js`, `ui/column-filters.js` | 표 `render()`·`dispose()`, 헤더 `render()`·`columnCount`, 필터 팝업 `close()` | 행·가상 스크롤 / 열 배치·헤더 조작 / 필터 입력 초안을 각각 소유 |
-| `ui/chart-view.js` | 측정 `render()`과 분석 `render(model, selectedIds)`, `dispose()`, `exportAnalysisPng(model)` | 측정·분석 canvas·라이브러리 인스턴스·고정 크기 PNG |
+| `ui/chart-view.js` | 측정 `render(model)`과 분석 `render(model, selectedIds)`, `dispose()`, `exportAnalysisPng(model)` | 측정·분석 canvas·라이브러리 인스턴스·고정 크기 PNG |
 
 공통 레코드와 입력 계약은 `data/contracts.js`의 JSDoc·검증 함수로 시작한다. 의존 방향과 외부 도구 경계는 [구현 원칙 §3](ARCHITECTURE.md#3-의존-방향과-외부-도구의-경계)을 따른다. 화면은 사용자 행동을 전달하고 결과를 표시하며, 저장과 점검은 화면의 단계 번호를 입력 조건으로 사용하지 않는다. PNG의 실제 다운로드 요청은 작은 `ui/download.js`가 처리한다.
+
+`getViewModel()`은 표 행·요약·불러온 샘플·현재 그래프를 한 번의 화면 갱신에 제공한다. 표와 결과 해석은 전달받은 모델을 사용한다. 시간 그래프 자료 변환은 `timeGraphData()`가 담당하며 차트 어댑터는 표시·좌표 변환·PNG만 맡는다.
 
 RunStore의 생성·열기는 저장된 상태를 읽고 작성 권한을 확보한다. 메타데이터 변경은 `updateRun(patch)`로 전달해 revision을 갱신하며, `close()`는 저장·미저장 자료 처리를 마친 뒤 잠금과 저장 일정을 해제한다.
 
@@ -490,7 +498,7 @@ JSON 가져오기에서 근거 ID·제외 사유·시간 범위의 ID 대응·�
 
 수신 점검과 압력 반응 점검은 별도 함수·설정으로 둔다. 공개 계약은 `step(previousState, input, now, config) → { nextState, observation }`이다. 입력은 표준 샘플·수신 시각·형식 오류·배치/가열/장치 사건·평가 tick이며, 관측 결과는 `ruleId`, `ruleVersion`, `state`, `reasonCode`, `evidence`이다. UI 문구는 `reasonCode`에 대응하는 문구표에서 가져온다.
 
-규칙 내부에서 현재 시각·DOM·DB를 직접 읽거나 타이머를 만들지 않는다. 측정 세션이 규칙별 상태, 주입된 단조 시계와 평가 일정을 소유한다. 새 수신이 없어도 tick으로 중단을 평가하고, 측정 종료 시 평가를 정리한다.
+규칙 내부에서 현재 시각·DOM·DB를 직접 읽거나 타이머를 만들지 않는다. 측정 세션이 규칙별 상태와 주입된 단조 시계를 사용하고, 측정 제어기가 500ms마다 활성 세션의 tick을 호출한다. 새 수신이 없어도 중단을 평가하며 완료된 세션의 tick은 상태를 바꾸지 않는다. 수신·배터리·배치의 준비 진도 확인도 제어기가 맡는다. 화면 렌더링은 이 상태를 표시하며 사건이나 진도를 수정하지 않는다. 화면 전환은 평가 일정을 유지하고 문서 종료 시 타이머를 정리한다.
 
 | 규칙 | 상태와 입력 처리 |
 |---|---|
@@ -532,6 +540,8 @@ CSV는 열 이름으로 대응한다. 현재 원자료 6열 또는 기존 bme280
 UTF-8(BOM 선택), 시간대가 있는 ISO 시각, 유한한 십진수·지수 표기를 검증한다. 빈 원자료 값은 null/missing으로, 계산 결과 빈칸은 null/이유로 보존한다. 열 개수 불일치·중복/미지원 헤더·잘못된 숫자/날짜·값과 유효성 불일치는 파일 전체를 거부한다. 행 오류는 자료 행 번호를 알리며 정상 행만 몰래 가져오지 않는다. 파일 크기 제한은 CSV·JSON 모두 50MB다. CSV는 완료된 별도 실험으로 저장하고 장치 프로파일이나 측정 사건을 추정하지 않는다.
 
 CSV의 행 순서와 수신 시각을 보존한다. 옛 구간 관련 열은 분석 기준으로 사용하지 않으며 구간 번호나 단조 경과시간을 유도하지 않는다. 분석 CSV는 내보낸 부분 자료로 다시 열고 원래 전체 실험을 복원한 것으로 표시하지 않는다.
+
+로컬 작업 재열기와 JSON의 작업 복원은 같은 `restoreWorkspace()`를 사용한다. 옛 구간 정렬은 번호 오름차순으로, 옛 필터는 기존 호환 규칙으로 이행하고 스크롤·이전 interpretation 설정은 제거한다. 부분 후보가 남아 있는 전체 분석은 후보 ID를 유지한 지정 분석으로 연다. 이후 선택·제외·계산 열·축·표 참조를 검증하며 알 수 없는 열은 거부한다. 원자료·사건은 수정하지 않는다.
 
 JSON은 파일 형식 `gay-lussac-experiment`로 내보내며 새 파일은 버전 2, Run 스키마는 2를 사용한다. 읽기는 기존 파일 버전 1과 새 버전 2를 모두 지원한다. UI는 50MB 이하의 파일을 받는다. 스키마·유한한 숫자·연속 원자료/사건 ID·작업 참조·계산 열 의존성을 먼저 확인한 뒤 한 트랜잭션으로 저장한다. 저장 대기 자료도 파일에 포함하며 가져올 때 파일 전체를 저장 완료 위치로 맞춘다. 회귀 결과는 파일에서 신뢰하지 않고 설정만 복원하여 다시 계산한다. 실험 ID가 충돌하면 새 ID로 가져오고 자식 레코드의 실험 ID도 함께 바꾼 뒤 출처 ID를 기록한다. 원자료·사건·작업과 원래 완료/중단 상태를 보존하되 활성 통신이나 탭 잠금은 복원하지 않는다. 가져온 실험은 자동으로 측정 세션을 만들거나 사건을 추가하지 않는다. 미완료 자료를 이어 측정하려면 작성 권한과 새 연결을 확보하는 기존 재개 절차를 따른다. 실제 장치에서 나온 파일 중 현재 장치 프로파일이 일치하는 자료만 BLE를 다시 연결할 수 있으며 재생 자료의 출처는 가져온 뒤에도 보존한다. CSV·재생 자료의 추가 측정 버튼은 비활성화하고 실제 장치 기록은 새 실험에서 시작한다.
 

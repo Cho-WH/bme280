@@ -23,6 +23,24 @@ function applyPreset(workspace, kind) {
 }
 
 const graphAxes = { xColumnId: 'temperatureC', yColumnId: 'pressureHpa', type: 'scatter' };
+test('implicit and explicit default axes ignore unrelated calculations and use the same displayed inputs', () => {
+  const { workspace: w } = fixture();
+  const initial = w.getState(), graph = w.getGraphData();
+  w.saveColumn(calc('unused'));
+  assert.equal(w.getState().workspaceRevision, initial.workspaceRevision + 1);
+  assert.equal(w.getState().analysisInputRevision, initial.analysisInputRevision);
+  assert.deepEqual(w.getGraphData(), graph);
+  w.setGraph(graphAxes);
+  assert.equal(w.getState().analysisInputRevision, initial.analysisInputRevision);
+  w.setFilter({ ranges: { sampleId: { min: 90 } } }); w.setSelection([90]); w.exclude([91]);
+  const model = w.getViewModel();
+  assert.deepEqual(model.rows, w.getRows()); assert.deepEqual(model.summary, w.getSummary());
+  assert.deepEqual(model.graph, w.getGraphData()); assert.deepEqual(model.samples, w.getSamples());
+  assert.equal(model.rows.length, 11); assert.equal(model.graph.points.length, 99);
+  const revision = w.getState().workspaceRevision;
+  w.getViewModel(); assert.equal(w.getState().workspaceRevision, revision);
+});
+
 test('time range selects actual timestamps including duplicate boundaries and keeps exclusions independent of table checks', () => {
   const f = fixture(), w = f.workspace, raw = f.store.getSnapshot().samples;
   w.setSelection([80]); w.exclude([2, 90]); w.setFilter({ ranges: { sampleId: { min: 70 } } });

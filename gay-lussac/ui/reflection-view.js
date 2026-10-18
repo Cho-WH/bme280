@@ -99,8 +99,8 @@ export function createReflectionView(root, { getWorkspace, getStoreState, act, o
   }, { signal });
   return {
     flush, updateStatus,
-    render(visible) {
-      const workspace = getWorkspace(), state = workspace?.getState(), reflection = state?.reflection;
+    render(visible, viewModel) {
+      const workspace = getWorkspace(), reflection = viewModel?.state.reflection;
       if (attachedWorkspace !== workspace) {
         attachedWorkspace = workspace; chartKey = null;
         for (const [id, { input }] of inputs) input.value = reflection?.answers[id] ?? '';
@@ -108,11 +108,11 @@ export function createReflectionView(root, { getWorkspace, getStoreState, act, o
       }
       for (const { input } of inputs.values()) input.disabled = !workspace?.isWritable();
       evidence = reflection?.evidence; model = workspace?.getReflectionModel() ?? null;
-      origin = workspace?.getSamples()[0]?.receivedAt ?? 0;
+      origin = viewModel?.samples[0]?.receivedAt ?? 0;
       $('reflection-print-button').disabled = !workspace || printing;
       $('reflection-empty').hidden = Boolean(model); $('reflection-evidence-body').hidden = !model;
       $('reflection-stale').hidden = !workspace?.reflectionChanged();
-      $('reflection-refresh').disabled = !workspace?.isWritable() || !workspace.getGraphData().points.length;
+      $('reflection-refresh').disabled = !viewModel?.writable || !viewModel.graph.points.length;
       $('reflection-run-name').textContent = getStoreState()?.name ?? '나의 실험';
       $('reflection-evidence-caption').textContent = model ? `${model.xLabel} → ${model.yLabel}` : '관계 그래프에서 근거를 가져와 주세요.';
       $('reflection-scope').textContent = evidenceDescription(evidence, model, origin);
@@ -126,7 +126,7 @@ export function createReflectionView(root, { getWorkspace, getStoreState, act, o
       $('reflection-statistics').hidden = !model?.regression?.enabled;
       $('reflection-equation').textContent = summary.equation; $('reflection-stat-detail').textContent = summary.detail;
       $('reflection-no-trend').hidden = Boolean(model?.regression?.enabled);
-      const columns = graphColumns(evidence?.calculatedColumns ?? [], workspace?.getImportedColumns() ?? []);
+      const columns = graphColumns(evidence?.calculatedColumns ?? [], viewModel?.importedColumns ?? []);
       const operand = o => o.kind === 'constant' ? formatCalculated(o.value) : columnLabel(columns.find(c => c.id === o.columnId));
       $('reflection-calculations').hidden = !evidence?.calculatedColumns.length;
       $('reflection-formulas').replaceChildren(...(evidence?.calculatedColumns ?? []).map(c => node('li', `${columnLabel(c)} = ${operand(c.lhs)} ${CALCULATION_OPERATORS[c.op]} ${operand(c.rhs)}`)));

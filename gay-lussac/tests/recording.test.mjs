@@ -7,6 +7,8 @@ import { PROGRAM } from '../program-config.js';
 import { decode } from '../measurement/decoder.js';
 import { buildCsv, buildExperimentJson, parseExperimentJson } from '../data/files.js';
 import { createWorkspace } from '../analysis/workspace.js';
+import { createMeasurementController } from '../measurement/controller.js';
+import { measurementActions } from '../measurement/actions.js';
 
 const require = createRequire(import.meta.url);
 globalThis.Papa = require('../vendor/papaparse-5.7.0.min.js');
@@ -49,6 +51,52 @@ async function fixture(extra = {}) {
   return { repo, store, session, clock, at(value) { ms = value; },
     accept(value, overrides) { ms = value; session.acceptInput(reading(value, overrides)); } };
 }
+
+test('measurement pulse confirms progress and records reception loss independently of display refreshes', async () => {
+  const f = await fixture(), confirmed = new Set();
+  let pulse, starts = 0, stops = 0, refreshes = 0;
+  const controller = createMeasurementController({
+    getSession: () => f.session, getMonitor: () => f.session.monitor,
+    getConnection: () => ({ status: 'connected' }), getActions: () => ({ hasLiveSession: true }),
+    onConfirmed: id => confirmed.add(id), onRefresh: () => { refreshes++; }, clock: f.clock.mono,
+    timers: { setInterval(fn) { pulse = fn; starts++; return 1; }, clearInterval() { stops++; } },
+  });
+  controller.start(); controller.start(); assert.equal(starts, 1);
+  for (const ms of [0, 500, 1000]) { f.at(ms); controller.acceptInput(reading(ms)); }
+  assert.ok(confirmed.has('reception')); assert.equal(refreshes, 0);
+  controller.confirmBattery(); controller.markEvent('placement');
+  for (const ms of [1500, 2000, 2500]) { f.at(ms); controller.acceptInput(reading(ms)); }
+  assert.deepEqual([...confirmed].sort(), ['battery', 'placement', 'reception']);
+  f.at(9000); pulse();
+  assert.equal(f.store.getEvents().filter(e => e.type === 'reception-change').at(-1).payload.state, 'stale');
+  const eventCount = f.store.getEvents().length;
+  pulse(); assert.equal(f.store.getEvents().length, eventCount);
+  assert.equal(refreshes, 4);
+  controller.dispose(); controller.dispose(); assert.equal(stops, 1);
+  assert.equal(f.session.getState().state, 'collecting');
+  await f.store.close();
+});
+
+test('shared measurement actions preserve source and writer rules while blocking run transitions', () => {
+  const context = { saved: { writable: true, runStatus: 'open', status: 'clean' }, run: { source: 'device' },
+    live: { state: 'idle' }, connection: { status: 'disconnected', busy: false }, program: { busy: false },
+    busy: {}, profile: PROGRAM.profile, supported: true, secure: true };
+  assert.equal(measurementActions(context).canConnect, true);
+  const paused = measurementActions({ ...context, live: { state: 'paused' } });
+  assert.equal(paused.canRecord, false); assert.equal(paused.canConnect, true);
+  for (const operation of ['opening', 'importing', 'deleting', 'renaming']) {
+    const blocked = measurementActions({ ...context, busy: { [operation]: true } });
+    assert.equal(blocked.canConnect, false); assert.equal(blocked.canStartRun, false);
+  }
+  const completed = { ...context, saved: { ...context.saved, runStatus: 'complete' }, live: { state: 'ended' } };
+  assert.equal(measurementActions(completed).canAddMeasurements, true);
+  for (const change of [{ run: { source: 'replay' } }, { saved: { ...completed.saved, writable: false } },
+    { saved: { ...completed.saved, status: 'pending' } }, { busy: { deleting: true } }])
+    assert.equal(measurementActions({ ...completed, ...change }).canAddMeasurements, false);
+  const imported = { source: 'import', importedFrom: { source: 'device' }, profile: PROGRAM.profile };
+  assert.equal(measurementActions({ ...completed, run: imported }).canAddMeasurements, true);
+  assert.equal(measurementActions({ ...completed, run: { ...imported, profile: {} } }).canAddMeasurements, false);
+});
 
 test('failed deletion keeps the writer and data usable, blocking edits until deletion settles', async () => {
   const repo = repository(), lockManager = locks();

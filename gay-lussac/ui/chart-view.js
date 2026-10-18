@@ -1,4 +1,3 @@
-import { CONNECTION } from '../program-config.js';
 import { clockTime, formatClockTime, formatElapsedTime } from '../analysis/clock-time.js';
 import { formatCalculated } from '../analysis/calculations.js';
 import { trendSummary } from './trend-summary.js';
@@ -219,35 +218,14 @@ export function createChartView(canvas, { inspect = false, onCursor = () => {}, 
     },
   });
   return {
-    render(points, now, { range = 'recent', events = [], origin = points[0]?.receivedAt ?? now, connectGaps = false } = {}) {
-      currentPoints = points; timeOrigin = origin;
-      const whole = range === 'all';
-      chart.options.scales.x.min = whole ? undefined : -60;
-      chart.options.scales.x.max = whole ? undefined : 0;
-      chart.options.scales.x.title.text = whole ? '첫 수신으로부터 (초)' : '지금으로부터 (초)';
-      for (const [index, field] of ['temperatureC', 'pressureHpa'].entries()) {
-        const data = [];
-        let previous;
-        for (const point of points) {
-          const x = whole ? (point.receivedAt - origin) / 1000 : (point.monotonicAt - now) / 1000;
-          const delta = previous ? point.receivedAt - previous.receivedAt : 0;
-          if (previous && (delta < 0 || (!connectGaps && delta >= CONNECTION.staleMs))) data.push({ x, y: null });
-          data.push({ x, y: point.validity[field] === 'valid' ? point[field] : null, sampleId: point.sampleId,
-            elapsedSeconds: (point.receivedAt - origin) / 1000 });
-          previous = point;
-        }
-        chart.data.datasets[index].data = data;
-      }
-      // User actions share the time axis. Null points keep discontinuities visible.
+    render(model) {
+      currentPoints = model.points; timeOrigin = model.origin;
+      chart.options.scales.x.min = model.whole ? undefined : -60;
+      chart.options.scales.x.max = model.whole ? undefined : 0;
+      chart.options.scales.x.title.text = model.whole ? '첫 수신으로부터 (초)' : '지금으로부터 (초)';
+      model.series.forEach((data, index) => { chart.data.datasets[index].data = data; });
       chart.data.datasets[2] = { type: 'scatter', label: '조작 기록', yAxisID: 'temperature',
-        pointStyle: 'triangle', pointRadius: 6, backgroundColor: '#87632f',
-        data: events.filter((e) => e.source === 'user').flatMap((e) => {
-          const nearest = points.find((p) => p.receivedAt >= e.receivedAt && p.validity.temperatureC === 'valid');
-          if (!nearest) return [];
-          const x = whole ? (e.receivedAt - origin) / 1000
-            : (nearest.monotonicAt - now - (nearest.receivedAt - e.receivedAt)) / 1000;
-          return x < -60 && !whole ? [] : [{ x, y: nearest.temperatureC, elapsedSeconds: (e.receivedAt - origin) / 1000 }];
-        }) };
+        pointStyle: 'triangle', pointRadius: 6, backgroundColor: '#87632f', data: model.markers };
       chart.update('none');
     },
     resize() { chart.resize(); },
