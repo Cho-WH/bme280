@@ -82,6 +82,35 @@ test('JSON round trip preserves full data, pending samples, definitions and view
   assert.equal(opened.getState().graph.view, 'extended');
 });
 
+test('local and JSON restoration share legacy workspace migrations without changing raw records', () => {
+  const { snapshot } = fixture();
+  snapshot.workspace.table.sort = { columnId: 'segmentId', direction: 'desc' };
+  snapshot.workspace.table.scrollTop = 400;
+  snapshot.workspace.table.filter = { columnId: 'segmentId', min: 2, max: 3 };
+  snapshot.workspace.appliedScope = 'all'; // Legacy partial candidates must remain designated.
+  delete snapshot.workspace.calculatedColumns;
+  delete snapshot.workspace.reflection;
+  snapshot.workspace.interpretation = { enabled: true };
+  const before = copy(snapshot);
+  const open = value => createWorkspace({ store: { getSnapshot: () => value, getState: () => ({ writable: false }) } });
+  const local = open(snapshot).getState();
+  assert.deepEqual(local.table.sort, { columnId: 'sampleId', direction: 'asc' });
+  assert.equal(local.appliedScope, 'selection');
+  assert.deepEqual(local.appliedIds, [1, 2, 3]);
+  assert.equal(local.reflection.evidence, null);
+  assert.equal('scrollTop' in local.table, false);
+  for (const json of [buildExperimentJson(snapshot), JSON.stringify({ format: 'gay-lussac-experiment', version: 1, snapshot })]) {
+    const imported = parseExperimentJson(json);
+    assert.deepEqual(open(imported).getState(), local);
+    assert.deepEqual(imported.samples, snapshot.samples);
+    assert.deepEqual(imported.events, snapshot.events);
+  }
+  assert.deepEqual(snapshot, before);
+  snapshot.workspace.table.sort.columnId = 'unknown';
+  assert.throws(() => open(snapshot), /정렬/);
+  assert.throws(() => parseExperimentJson(buildExperimentJson(snapshot)), /정렬/);
+});
+
 test('JSON import rejects unsupported schema, malformed numbers, duplicate IDs and broken workspace references before persistence', async () => {
   const { snapshot } = fixture();
   const changes = [

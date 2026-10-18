@@ -1,3 +1,4 @@
+import { axisCalculations } from './calculation-dependencies.js';
 import { DEFAULT_GRAPH, validateCalculatedColumns, validateGraph } from '../data/contracts.js';
 import { validateAnalysisRange } from './scope.js';
 import { createCalculator } from './calculations.js';
@@ -13,18 +14,6 @@ export const REFLECTION_QUESTIONS = Object.freeze([
 const copy = structuredClone;
 const requireValue = (ok, message) => { if (!ok) throw new Error('결과 해석: ' + message); };
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-
-// Retain only definitions used by the axes, including transitive dependencies.
-export function axisCalculations(graph, columns) {
-  const byId = new Map(columns.map(c => [c.id, c])), needed = new Set();
-  function visit(id) {
-    if (needed.has(id) || !byId.has(id)) return;
-    needed.add(id);
-    for (const operand of [byId.get(id).lhs, byId.get(id).rhs]) if (operand.kind === 'column') visit(operand.columnId);
-  }
-  [graph.xColumnId, graph.yColumnId].forEach(visit);
-  return columns.filter(c => needed.has(c.id));
-}
 
 export function captureEvidence(state) {
   const graph = state.graph ?? DEFAULT_GRAPH, ids = new Set(state.appliedIds);

@@ -1,10 +1,12 @@
+import { restoreWorkspace } from './workspace-state.js';
+import { axisCalculations } from './calculation-dependencies.js';
 import { DEFAULT_FILTER, TABLE_COLUMNS, tableRows, analysisScope, normalizeFilter, columnRanges } from './table-data.js';
 import { validateCalculatedColumns, validateGraph, validateImportedColumns, DEFAULT_GRAPH } from '../data/contracts.js';
-import { rangeSampleIds, validateAnalysisRange, timeBounds } from './scope.js';
+import { rangeSampleIds, timeBounds, scopeMembership } from './scope.js';
 import { createCalculator, presetColumns } from './calculations.js';
 import { graphData } from './graph-data.js';
 import { fitGraph, trendGeometry } from './regression.js';
-import { captureEvidence, evidenceKey, evidenceGraph, validateAnswers, validateReflection } from './reflection.js';
+import { captureEvidence, evidenceKey, evidenceGraph, validateAnswers } from './reflection.js';
 
 const copy = structuredClone;
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -13,15 +15,9 @@ const historyState = state => ({ appliedIds: state.appliedIds, appliedScope: sta
   regression: { enabled: state.regression?.enabled === true } });
 const inputState = state => {
   const applied = new Set(state.appliedIds);
-  const byId = new Map(state.calculatedColumns.map(c => [c.id, c])), needed = new Set();
-  function visit(id) {
-    if (needed.has(id) || !byId.has(id)) return;
-    needed.add(id);
-    for (const operand of [byId.get(id).lhs, byId.get(id).rhs]) if (operand.kind === 'column') visit(operand.columnId);
-  }
-  (state.graph ? [state.graph.xColumnId, state.graph.yColumnId] : [...byId.keys()]).forEach(visit);
-  return { axes: state.graph ? [state.graph.xColumnId, state.graph.yColumnId] : null,
-    calculations: state.calculatedColumns.filter(c => needed.has(c.id)).map(({ id, lhs, op, rhs }) => ({ id, lhs, op, rhs })),
+  const graph = state.graph ?? DEFAULT_GRAPH;
+  return { axes: [graph.xColumnId, graph.yColumnId],
+    calculations: axisCalculations(graph, state.calculatedColumns).map(({ id, lhs, op, rhs }) => ({ id, lhs, op, rhs })),
     appliedIds: state.appliedIds, excludedIds: state.exclusions.filter(e => applied.has(e.sampleId)).map(e => e.sampleId) };
 };
 
@@ -33,23 +29,13 @@ export function createWorkspace({ store }) {
   const imported = validateImportedColumns(snapshot.run.importedColumns ?? []);
   const writable = store.getState().writable;
   const initialIds = samples.map(s => s.sampleId);
-  let state = snapshot.workspace ? copy(snapshot.workspace) : {
+  let state = restoreWorkspace(snapshot.workspace ?? {
     runId: snapshot.run.id, workspaceRevision: 0, analysisInputRevision: 0,
     tableLastSampleId: initialIds.at(-1) ?? 0,
     table: { sort: { columnId: 'sampleId', direction: 'asc' }, filter: { ...DEFAULT_FILTER } },
     selectedIds: [], appliedIds: initialIds, appliedScope: 'all', exclusions: [],
     calculatedColumns: [], graph: null, regression: null, note: '',
-  };
-  // Ignore legacy scroll positions; scrolling belongs only to the live table view.
-  delete state.table.scrollTop;
-  state.calculatedColumns = validateCalculatedColumns(state.calculatedColumns ?? [], imported);
-  state.graph = validateGraph(state.graph, state.calculatedColumns, imported);
-  state.regression = { enabled: state.regression?.enabled === true };
-  state.analysisRange = validateAnalysisRange(state.analysisRange, samples, state);
-  state.reflection = validateReflection(state.reflection, samples, imported);
-  delete state.interpretation;
-  state.table.filter = normalizeFilter(state.table.filter, [...imported, ...state.calculatedColumns]);
-  if (state.table.sort.columnId === 'segmentId') state.table.sort = { columnId: 'sampleId', direction: 'asc' };
+  }, { runId: snapshot.run.id, samples, imported });
   const undo = [], redo = [];
   let loadedCount = samples.filter(s => s.sampleId <= state.tableLastSampleId).length;
   let anchorId = null;
@@ -97,12 +83,6 @@ export function createWorkspace({ store }) {
     store.saveWorkspace(copy(state));
   }
   function loadedIds() { return samples.filter(s => s.sampleId <= state.tableLastSampleId).map(s => s.sampleId); }
-  // Older workspaces could keep a partial candidate set even in 'all' mode.
-  // Preserve those inputs as a designated analysis instead of expanding them on open.
-  if (snapshot.workspace && state.appliedScope === 'all' && !same(orderedIds(state.appliedIds), orderedIds(loadedIds()))) {
-    const next = { ...copy(state), appliedScope: 'selection' };
-    if (writable) commit(next); else state = next;
-  }
   function validateIds(ids) {
     const allowed = new Set(loadedIds());
     if (ids.some(id => !allowed.has(id))) throw new Error('먼저 새 자료 반영을 눌러 표에 자료를 불러오세요.');
@@ -223,8 +203,8 @@ export function createWorkspace({ store }) {
   }
   function previewColumn(definition, prerequisites = []) {
     const calculate = createCalculator(columnDraft(definition, prerequisites), imported);
-    const ids = new Set(state.appliedIds), excluded = new Set(state.exclusions.map(e => e.sampleId));
-    return samples.filter(s => ids.has(s.sampleId) && !excluded.has(s.sampleId)).slice(0, 3)
+    const scope = scopeMembership(state);
+    return samples.filter(s => scope.includes(s.sampleId)).slice(0, 3)
       .map(s => {
         const values = calculate(s);
         const inputs = [definition.lhs, definition.rhs].map(o => o.kind === 'constant' ? { value: o.value, reason: null }
@@ -275,6 +255,13 @@ export function createWorkspace({ store }) {
     return commit({ ...copy(state), reflection: { ...copy(state.reflection), evidence: captureEvidence(state) } });
   }
 
+  function getSummary(rows = rowsFor()) {
+    const selected = new Set(state.selectedIds);
+    return { ...analysisScope(samples, state), loadedCount,
+      selectedCount: selected.size, visibleSelectedCount: rows.filter(s => selected.has(s.sampleId)).length,
+      undoLabel: undo.at(-1)?.label ?? '', redoLabel: redo.at(-1)?.label ?? '' };
+  }
+
   return {
     getState: () => copy(state), isWritable: () => writable, getLoadedCount: () => loadedCount,
     getRows: () => rowsFor(),
@@ -283,11 +270,11 @@ export function createWorkspace({ store }) {
     getGraphData, getReflectionModel, captureReflection,
     reflectionChanged: () => Boolean(state.reflection.evidence) && evidenceKey(state.reflection.evidence) !== evidenceKey(captureEvidence(state)),
     setReflectionAnswers(answers) { return commit({ ...copy(state), reflection: { ...copy(state.reflection), answers: validateAnswers(answers) } }); },
-    getSummary() {
-      const rows = rowsFor(), selected = new Set(state.selectedIds);
-      return { ...analysisScope(samples, state), loadedCount,
-        selectedCount: selected.size, visibleSelectedCount: rows.filter(s => selected.has(s.sampleId)).length,
-        undoLabel: undo.at(-1)?.label ?? '', redoLabel: redo.at(-1)?.label ?? '' };
+    getSummary,
+    getViewModel() {
+      const rows = rowsFor();
+      return { state: copy(state), rows, samples: projected().filter(s => s.sampleId <= state.tableLastSampleId),
+        summary: getSummary(rows), graph: getGraphData(), importedColumns: copy(imported), writable };
     },
     setSelection, selectRange, toggleSelection, applyScope, applyTimeRange, exclude, restore, setFilter, setSort, showNewData,
     saveColumn, deleteColumn, columnUsers, previewColumn,

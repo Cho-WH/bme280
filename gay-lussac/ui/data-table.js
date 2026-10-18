@@ -3,7 +3,7 @@ import { clockTime, formatClockTime } from '../analysis/clock-time.js';
 import { formatCalculated } from '../analysis/calculations.js';
 import { createTableHeader } from './table-header.js';
 import { tableColumns } from './table-columns.js';
-import { statusLabels } from '../analysis/scope.js';
+import { statusLabels, scopeMembership } from '../analysis/scope.js';
 
 const time = value => formatClockTime(clockTime(value)) || '—';
 const number = value => Number.isFinite(value) ? value.toFixed(2) : '—';
@@ -15,7 +15,7 @@ export function createDataTable({ body, scroller, status, onToggle, onSort, onIn
   const events = new AbortController(), { signal } = events;
   let rows = [], selected = new Set(), exclusions = new Map(), writable = false, columns = [], compact = false;
   let frame = null, renderedStart = -1, renderedEnd = -1, viewKey = null;
-  let applied = null, focusedId = null;
+  let scope = null, focusedId = null;
   const header = createTableHeader({ table, onSort, signal });
   function spacer(fragment, count) {
     if (!count) return;
@@ -39,7 +39,7 @@ export function createDataTable({ body, scroller, status, onToggle, onSort, onIn
       const sample = rows[index], id = sample.sampleId, excluded = exclusions.has(id);
       const row = document.createElement('tr'); row.className = 'sample-row'; row.dataset.sampleId = id;
       row.dataset.selected = selected.has(id);
-      const usageState = applied && !applied.has(id) ? 'outside' : excluded ? 'excluded' : 'included';
+      const usageState = scope.status(id);
       row.dataset.usage = usageState; row.dataset.focused = id === focusedId;
       row.setAttribute('aria-rowindex', String(index + 2));
       row.tabIndex = 0; row.setAttribute('aria-label', `자료 ${id}, ${statusLabels[usageState]}. Enter로 정보 보기`);
@@ -101,7 +101,7 @@ export function createDataTable({ body, scroller, status, onToggle, onSort, onIn
   const observer = new ResizeObserver(schedule); observer.observe(scroller);
   return {
     render({ samples, selectedIds, excluded, appliedIds = null, focusedSampleId = null, sort, filter = {}, calculatedColumns = [], importedColumns = [], axisIds = null, canEdit, resetScroll = false }) {
-      applied = appliedIds ? new Set(appliedIds) : null; focusedId = focusedSampleId;
+      scope = scopeMembership({ appliedIds, exclusions: excluded }, samples.map(s => s.sampleId)); focusedId = focusedSampleId;
       compact = axisIds !== null; columns = tableColumns(calculatedColumns, axisIds, importedColumns);
       header.render({ columns, compact, sort, filter, canEdit });
       const nextViewKey = JSON.stringify({ sort, filter });
