@@ -83,8 +83,10 @@ function storageUnavailable(message) {
 const guideView = createGuideView({ root: document.querySelector('[data-screen="prepare"]'), steps: STEPS,
   onSelectStep(step) { stepIndex = STEPS.indexOf(step); renderStep(true); },
   onRestore() { viewer.restoreStep(); },
+  onCableChange(side) { viewer.setCableSide(side); },
+  onInspectToggle() { viewer.toggleDetail(); },
 });
-const viewer = createViewerAdapter($('guide-frame'), state => guideView.setViewerState(state));
+const viewer = createViewerAdapter($('guide-frame'), (state, options) => guideView.setViewerState(state, options));
 
 function renderProgram(next) {
   programState = next;

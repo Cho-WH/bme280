@@ -2,8 +2,8 @@ import { createGuideLayout } from './guide-layout.js';
 
 const GROUP_LABELS = ['준비물', '배선', 'USB', '프로그램', '통신 연결', '배터리', '용기'];
 const WIRING = [
-  ['vcc', '전원', 'V', 'VCC'], ['gnd', '접지', 'G', 'GND'],
-  ['scl', '클록', 'CL · P19', 'SCL'], ['sda', '데이터', 'DA · P20', 'SDA'],
+  ['vcc', '전원', 'V', 'VCC', '3.3V'], ['gnd', '접지', 'G', 'GND', 'G or GND'],
+  ['scl', '클록', 'CL', 'SCL', 'SCL or P19'], ['sda', '데이터', 'DA', 'SDA', 'SDA or P20'],
 ];
 
 function renderText(root, step) {
@@ -12,16 +12,18 @@ function renderText(root, step) {
   root.querySelector('.step-description').textContent = step.description;
 }
 
-function createWiringTable(host) {
+function createWiringTable(host, alternatives = false) {
   const table = document.createElement('table');
-  table.className = 'wiring-table';
-  table.innerHTML = '<caption>확장 보드 ↔ BMP280 배선표</caption><thead><tr><th scope="col">역할</th><th scope="col">확장 보드</th><th scope="col">BMP280</th></tr></thead><tbody></tbody>';
-  const rows = WIRING.map(([wire, role, board, sensor]) => {
+  table.className = alternatives ? 'board-pin-table' : 'wiring-table';
+  table.innerHTML = alternatives
+    ? '<caption>확장 보드 단자 이름 대응표</caption><thead><tr><th scope="col">역할</th><th scope="col">sensor:bit</th><th scope="col">다른 확장 보드</th></tr></thead><tbody></tbody>'
+    : '<caption>확장 보드 ↔ BMP280 배선표</caption><thead><tr><th scope="col">역할</th><th scope="col">확장 보드</th><th scope="col">BMP280</th></tr></thead><tbody></tbody>';
+  const rows = WIRING.map(([wire, role, board, sensor, alternative]) => {
     const row = table.tBodies[0].insertRow();
     const heading = document.createElement('th'); heading.scope = 'row'; heading.textContent = role;
     const marker = document.createElement('small'); marker.textContent = '현재 단계'; marker.hidden = true;
     heading.append(marker); row.append(heading);
-    for (const pin of [board, sensor]) {
+    for (const pin of [board, alternatives ? alternative : sensor]) {
       const label = document.createElement('span'); label.className = 'pin-label'; label.textContent = pin;
       row.insertCell().append(label);
     }
@@ -36,7 +38,7 @@ function createWiringTable(host) {
 }
 
 // Owns preparation presentation only. Navigation and device operations stay in app.js.
-export function createGuideView({ root, steps, onSelectStep, onRestore }) {
+export function createGuideView({ root, steps, onSelectStep, onRestore, onCableChange, onInspectToggle }) {
   const get = id => root.querySelector(`#${id}`);
   const content = root.querySelector('.step-content');
   const progress = get('guide-progress');
@@ -44,7 +46,10 @@ export function createGuideView({ root, steps, onSelectStep, onRestore }) {
   const listen = (element, action) => element.addEventListener('click', action, { signal: listeners.signal });
   let step = steps[0], busy = false, viewerState = 'loading', mode = '3d';
   let completed = new Set();
+  let viewerOptions = { side: 'left', detail: false, hasAppliedState: false };
+  const cableButtons = [...root.querySelectorAll('[data-cable-side]')];
   const highlightWire = createWiringTable(get('fallback-table'));
+  createWiringTable(get('board-pin-table'), true);
   const buttons = GROUP_LABELS.map((label, index) => {
     const item = document.createElement('li');
     const button = document.createElement('button'); button.type = 'button';
@@ -63,12 +68,15 @@ export function createGuideView({ root, steps, onSelectStep, onRestore }) {
     createMeasurement(candidate) {
       const copy = document.createElement('div');
       copy.className = 'step-content'; copy.dataset.group = '2';
-      for (const selector of ['.step-counter', '.step-title', '.step-description', '#wiring-note']) {
+      for (const selector of ['.step-counter', '.step-title', '.step-description']) {
         const element = content.querySelector(selector).cloneNode(true);
         element.removeAttribute('id'); element.removeAttribute('tabindex'); element.hidden = false;
         copy.append(element);
       }
       renderText(copy, candidate);
+      // Reserve two title lines only when measuring the action-button position.
+      // The visible title uses its natural height; spare space stays below the copy.
+      copy.querySelector('.step-title').style.minHeight = '3em';
       return copy;
     },
   });
@@ -92,6 +100,7 @@ export function createGuideView({ root, steps, onSelectStep, onRestore }) {
     const unavailable = viewerState === 'unavailable';
     const fallback = (wiringStep && mode === 'table') || unavailable;
     get('guide-frame').hidden = placement || fallback;
+    get('guide-frame').classList.toggle('viewer-pending', !viewerOptions.hasAppliedState);
     get('placement-figure').hidden = !placement;
     get('model-fallback').hidden = placement || !fallback;
     get('model-toolbar').hidden = placement;
@@ -100,6 +109,14 @@ export function createGuideView({ root, steps, onSelectStep, onRestore }) {
     get('show-3d').setAttribute('aria-pressed', String(!fallback));
     get('show-wiring').setAttribute('aria-pressed', String(fallback));
     get('restore-view').hidden = placement || fallback;
+    get('wiring-view-controls').hidden = !step.model.wire || fallback;
+    cableButtons.forEach(button => {
+      button.disabled = busy || viewerState !== 'applied';
+      button.setAttribute('aria-pressed', String(button.dataset.cableSide === viewerOptions.side));
+    });
+    get('inspect-wiring').disabled = busy || viewerState !== 'applied';
+    get('inspect-wiring').setAttribute('aria-pressed', String(viewerOptions.detail));
+    get('inspect-wiring').textContent = viewerOptions.detail ? '전체 보기' : '단자 자세히';
     root.querySelector('.model-panel').dataset.mode = placement ? 'placement' : fallback ? 'table' : '3d';
     const status = unavailable ? '3D를 표시할 수 없어 배선표를 보여드려요.'
       : !fallback && viewerState !== 'applied' ? '3D를 불러오는 중…' : '';
@@ -109,6 +126,8 @@ export function createGuideView({ root, steps, onSelectStep, onRestore }) {
   }
 
   listen(get('restore-view'), onRestore);
+  cableButtons.forEach(button => listen(button, () => onCableChange(button.dataset.cableSide)));
+  listen(get('inspect-wiring'), onInspectToggle);
   listen(get('show-3d'), () => { mode = '3d'; renderViewer(); });
   listen(get('show-wiring'), () => { mode = 'table'; renderViewer(); });
   return {
@@ -116,6 +135,7 @@ export function createGuideView({ root, steps, onSelectStep, onRestore }) {
       step = next;
       renderText(content, step); content.dataset.group = String(step.group);
       get('next-step').textContent = step.action;
+      get('equipment-list').hidden = step.id !== 'equipment';
       get('program-actions').hidden = step.id !== 'program';
       get('connection-tools').hidden = step.id !== 'reception';
       get('battery-connection').hidden = step.id !== 'battery';
@@ -125,9 +145,9 @@ export function createGuideView({ root, steps, onSelectStep, onRestore }) {
       renderNavigation(); renderViewer(); layout.measure(); layout.transition(step.id);
       if (focus) get('step-title').focus({ preventScroll: true });
     },
-    setBusy(value) { busy = value; renderNavigation(); },
+    setBusy(value) { busy = value; renderNavigation(); renderViewer(); },
     setCompleted(ids) { completed = new Set(ids); renderNavigation(); },
-    setViewerState(value) { viewerState = value; renderViewer(); },
+    setViewerState(value, options) { viewerState = value; if (options) viewerOptions = options; renderViewer(); },
     dispose() { listeners.abort(); layout.dispose(); },
   };
 }

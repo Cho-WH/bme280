@@ -1,5 +1,16 @@
 // Short functional help only; learning questions and experiment state live elsewhere.
 export const actionHelpMessages = {
+  cableEnds: { label: '케이블 종류', text: '수는 핀이 튀어나온 끝, 암은 구멍이 있는 끝이에요. sensor:bit의 왼쪽 소켓에는 수–암, 오른쪽 핀에는 암–암 케이블을 연결해요. 센서 쪽은 모두 암이에요.' },
+  equipmentMicrobit: { label: 'micro:bit V2', text: '센서의 측정값을 받아 컴퓨터로 보내는 장치예요. 이 앱은 micro:bit V2를 기준으로 안내해요.' },
+  equipmentSensor: { label: 'BMP280 센서', text: '밀폐 용기 안의 온도와 압력을 측정해요. BME280 센서도 사용할 수 있어요.' },
+  equipmentBoard: { label: '확장 보드', text: 'micro:bit에 센서 연결선을 꽂을 수 있게 해 주는 보드예요. 그림에서는 sensor:bit를 사용해요.' },
+  equipmentWires: { label: '연결선 4개', text: '확장 보드와 센서를 연결해요. 양쪽 단자에 맞는 연결선을 준비하고, 용기 안에 함께 넣을 수 있는 길이를 골라 주세요.' },
+  equipmentUsb: { label: 'USB 데이터 케이블', text: 'micro:bit 쪽 단자가 구형 마이크로 5핀(Micro-B)인 케이블을 준비하세요. 실험 프로그램을 넣어야 하므로 충전 전용이 아닌 데이터 전송용이 필요해요.' },
+  equipmentBattery: { label: '배터리', text: 'USB 없이 측정할 때 사용해요. 이 실험에서는 micro:bit V2 기준으로 4.5V 배터리 팩을 권장하며, 3V도 사용할 수 있어요. micro:bit의 배터리 단자에 연결하세요.' },
+  equipmentContainer: { label: '유리 밀폐 용기', text: '온도와 압력에 따른 용기의 부피 변화를 줄이도록 벽과 뚜껑이 모두 유리인 용기를 준비하세요. 장치와 배터리가 모두 들어가고, 따뜻한 물에서 사용할 수 있으며 물과 공기가 새지 않아야 해요.' },
+  equipmentBath: { label: '수조', text: '밀폐 용기 바깥을 물로 데우는 데 사용해요. 용기를 넣고 주변에 물을 부을 여유가 있는 크기로 준비하세요.' },
+  equipmentWater: { label: '전기 포트 / 주전자', text: '물을 데우고 수조에 조금씩 부을 때 사용해요. 수조에 담을 물과 온도를 높일 따뜻한 물을 함께 준비하세요.' },
+  equipmentSupport: { label: '용기 고정 도구', text: '스탠드와 클램프로 용기가 뜨거나 기울지 않게 고정하는 것이 좋아요. 어렵다면 무거운 물체로 눌러도 괜찮아요.' },
   sensorTemperature: { label: '센서 온도', text: '센서가 있는 곳의 온도예요. 용기 안 공기 전체가 같은 온도라는 뜻은 아니에요.' },
   sensorPressure: { label: '용기 안 압력', text: '센서에서 측정한 절대압이에요. 바깥 기압과의 차이를 나타내는 값은 아니에요.' },
   importFile: { label: '실험 파일 열기', text: '측정값 파일(CSV)을 열면 새 실험으로 불러와 그래프를 만들고 분석할 수 있어요. 이 앱에서 저장한 이어하기용 파일(JSON)은 측정값뿐 아니라 계산식·분석 설정·작성한 해석까지 함께 복원해요. 기존에 저장된 실험은 그대로 남아요.' },

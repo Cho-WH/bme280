@@ -99,6 +99,11 @@
   display: block;
 }
 
+/* Keep the viewport measurable while the first step is being applied. */
+.model-area iframe.viewer-pending {
+  visibility: hidden;
+}
+
 .model-area figure {
   height: 100%;
   margin: 0;
@@ -120,6 +125,17 @@
   text-align: center;
   font-size: 13px;
   color: var(--muted);
+}
+
+.wiring-view-controls { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.cable-options { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.model-toolbar .cable-switch button, .model-toolbar .inspect-wiring { min-height: 32px; padding: 5px 9px; font-size: 12px; }
+.inspect-wiring { min-width: 94px; background: transparent; }
+.inspect-wiring[aria-pressed="true"] { color: var(--teal); border-color: #96bcb7; background: var(--pale); }
+
+@media(max-width:420px) {
+  .wiring-view-controls { gap: 6px; }
+  .cable-options { gap: 4px; }
 }
 
 .step-panel {
@@ -152,38 +168,28 @@
   flex: 1;
 }
 
-.connection-troubles {
-  margin-top: 25px;
+.equipment-list { margin-top: 18px; }
+.equipment-list section + section { margin-top: 20px; }
+.equipment-list h3 { margin: 0 0 8px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.equipment-list ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; list-style: none; margin: 0; padding: 0; }
+.equipment-list li { display: flex; align-items: center; justify-content: space-between; gap: 2px; min-height: 40px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.5; word-break: keep-all; }
+
+.wiring-alternatives {
   border-top: 1px solid var(--line);
-  padding-top: 18px;
-  font-size: 13px;
-}
-
-.connection-troubles summary {
-  cursor: pointer;
+  padding-top: 14px;
   color: var(--muted);
-  padding: 5px 0;
-}
-
-.connection-troubles dt {
-  font-weight: 700;
-  margin-top: 12px;
-}
-
-.connection-troubles dd {
-  margin: 4px 0 0;
-  color: var(--muted);
-  line-height: 1.7;
-}
-
-.verification-note {
-  border-left: 2px solid #bc956c;
-  padding-left: 12px;
-  color: #786145;
   font-size: 12px;
   line-height: 1.7;
-  margin-top: 20px;
+  margin-top: 18px;
 }
+.wiring-alternatives > p { margin: 0 0 4px; }
+.wiring-alternatives summary { padding: 4px 0; color: var(--teal); cursor: pointer; }
+.board-pin-table { width: 100%; table-layout: fixed; margin-top: 10px; font-size: 12px; }
+.board-pin-table caption { text-align: left; padding-bottom: 6px; color: var(--muted); }
+.board-pin-table th, .board-pin-table td { padding: 4px 5px; line-height: 1.5; text-align: center; vertical-align: middle; white-space: normal; overflow-wrap: anywhere; }
+.board-pin-table th:first-child { width: 20%; }
+.board-pin-table thead th { font-size: 13px; }
+.board-pin-table .pin-label { font-size: 12px; }
 
 .file-card {
   display: flex;
@@ -301,8 +307,8 @@
   padding: 4px 8px;
   background: #f8faf9;
   border-bottom: 1px solid var(--line);
-  height: var(--guide-toolbar-height);
-  flex-wrap: nowrap;
+  min-height: var(--guide-toolbar-height);
+  flex-wrap: wrap;
 }
 
 .model-toolbar button,.model-toolbar>a {
@@ -494,10 +500,6 @@
   min-height: var(--wiring-content-height,0px);
 }
 
-.step-content[data-group="2"] h2 {
-  min-height: 3em;
-}
-
 .step-actions button {
   min-height: 44px;
 }
@@ -685,6 +687,8 @@
     grid-column: 2;
     grid-row: 1;
   }
+
+  .wiring-view-controls { grid-column: 1 / -1; grid-row: 2; width: 100%; justify-content: space-between; margin: 0; padding: 2px 4px; }
 }
 
 @media(prefers-reduced-motion:reduce) {

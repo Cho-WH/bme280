@@ -177,7 +177,7 @@ button,a,summary {
 .brand {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
   color: var(--ink);
   text-decoration: none;
 }
@@ -195,8 +195,8 @@ button,a,summary {
 }
 
 .brand-symbol {
-  height: 36px;
-  width: 36px;
+  height: 48px;
+  width: 48px;
   display: block;
   object-fit: contain;
   flex-shrink: 0;
@@ -806,7 +806,7 @@ th,td {
   }
 
   .header-identity { width: 100%; justify-content: space-between; gap: 10px; }
-  .header-identity .brand { gap: 10px; }
+  .header-identity .brand { gap: 6px; }
 
   .status-list {
     width: 100%;

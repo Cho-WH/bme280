@@ -39,7 +39,7 @@
   <a class="skip-link" href="#main">본문으로 이동</a>
   <header class="app-header">
     <div class="header-identity">
-      <a href="#/home" class="brand"><img class="brand-symbol" src="./assets/app-icon.svg" width="36" height="36" alt=""><span><small>게이뤼삭 실험</small><strong>기체의 온도와 압력</strong></span></a>
+      <a href="#/home" class="brand"><img class="brand-symbol" src="./assets/app-icon.svg" width="48" height="48" alt=""><span><small>게이뤼삭 실험</small><strong>기체의 온도와 압력</strong></span></a>
     <div class="header-feedback">
       <a class="feedback-link" href="https://docs.google.com/forms/d/e/1FAIpQLScl6wM7CJNYth35y4hhw62rKpZBTfRMYwf5zOrgLwW1ntq1Cw/viewform?usp=header" target="_blank" rel="noopener noreferrer" aria-label="의견 보내기 (새 탭)"><span class="feedback-icon" aria-hidden="true"></span>의견 보내기</a>
       <details class="feedback-more">
@@ -115,19 +115,46 @@
           <div id="model-toolbar" class="model-toolbar">
             <div id="viewer-modes" class="viewer-modes" role="group" aria-label="장치 보기 방식"><button id="show-3d" aria-pressed="true">3D 보기</button><button id="show-wiring" aria-pressed="false">배선표 보기</button></div>
 
+          <div id="wiring-view-controls" class="wiring-view-controls" hidden>
+            <div class="cable-options"><span class="help-action"><button type="button" class="help-trigger" data-action-help="cableEnds" aria-label="케이블 암수 구분 도움말">?</button></span><div class="viewer-modes cable-switch" role="group" aria-label="케이블 종류"><button type="button" data-cable-side="left" aria-pressed="true">수–암</button><button type="button" data-cable-side="right" aria-pressed="false">암–암</button></div></div>
+            <button type="button" id="inspect-wiring" class="inspect-wiring" aria-pressed="false">단자 자세히</button>
+          </div>
             <a href="../bmp280-wiring/" target="_blank" rel="noopener">크게 보기 ↗</a>
           </div>
           <div class="model-area">
             <button id="restore-view">↺ 시점 초기화</button>
             <p id="viewer-status" class="viewer-status" role="status" hidden></p>
-            <iframe id="guide-frame" title="BMP280 배선 3D 모델"></iframe>
+            <iframe id="guide-frame" class="viewer-pending" title="BMP280 배선 3D 모델"></iframe>
             <figure id="placement-figure" hidden><img src="./assets/setup.svg" alt="유리 밀폐 용기 안의 마이크로비트·배터리·BMP280 센서와 바깥의 물·고정대. 센서는 벽에 닿지 않고 최대한 용기 중앙에 떠 있도록 하세요."></figure>
             <div id="model-fallback" hidden><div id="fallback-table"></div><p class="muted">선 색보다 실제 보드의 단자 이름을 확인하세요.</p></div>
           </div>
+
         </div>
         <aside class="step-panel" aria-labelledby="step-title">
           <div class="step-content">
           <p id="step-counter" class="eyebrow step-counter"></p><h2 id="step-title" class="step-title" tabindex="-1"></h2><p id="step-description" class="step-description"></p>
+          <div id="equipment-list" class="equipment-list" hidden>
+            <section aria-labelledby="equipment-devices-title">
+              <h3 id="equipment-devices-title">측정 장치</h3>
+              <ul>
+                <li><span>micro:bit V2</span><button type="button" class="help-trigger" data-action-help="equipmentMicrobit" aria-label="micro:bit V2 준비 안내">?</button></li>
+                <li><span>BMP280 센서</span><button type="button" class="help-trigger" data-action-help="equipmentSensor" aria-label="BMP280 센서 준비 안내">?</button></li>
+                <li><span>확장 보드</span><button type="button" class="help-trigger" data-action-help="equipmentBoard" aria-label="확장 보드 준비 안내">?</button></li>
+                <li><span>연결선 4개</span><button type="button" class="help-trigger" data-action-help="equipmentWires" aria-label="연결선 준비 안내">?</button></li>
+                <li><span>USB 데이터 케이블</span><button type="button" class="help-trigger" data-action-help="equipmentUsb" aria-label="USB 데이터 케이블 준비 안내">?</button></li>
+                <li><span>배터리</span><button type="button" class="help-trigger" data-action-help="equipmentBattery" aria-label="배터리 준비 안내">?</button></li>
+              </ul>
+            </section>
+            <section aria-labelledby="equipment-tools-title">
+              <h3 id="equipment-tools-title">실험 도구</h3>
+              <ul>
+                <li><span>유리 밀폐 용기</span><button type="button" class="help-trigger" data-action-help="equipmentContainer" aria-label="유리 밀폐 용기 준비 안내">?</button></li>
+                <li><span>수조</span><button type="button" class="help-trigger" data-action-help="equipmentBath" aria-label="수조 준비 안내">?</button></li>
+                <li><span>전기 포트 / 주전자</span><button type="button" class="help-trigger" data-action-help="equipmentWater" aria-label="전기 포트 / 주전자 준비 안내">?</button></li>
+                <li><span>용기 고정 도구</span><button type="button" class="help-trigger" data-action-help="equipmentSupport" aria-label="용기 고정 도구 준비 안내">?</button></li>
+              </ul>
+            </section>
+          </div>
           <div id="program-actions" class="program-actions" hidden>
             <div class="file-card"><span aria-hidden="true">↓</span><div><strong>온도·압력 측정 프로그램</strong></div></div>
             <button id="install-program" class="button primary" disabled>USB로 프로그램 설치</button>
@@ -143,10 +170,15 @@
           <div id="reception-check" class="check-card" hidden><strong id="check-title" class="check-title" role="status">새 값 기다리는 중</strong><p id="check-detail" class="check-detail"></p><div class="mini-readings"><span>온도 <b data-temperature>—</b> ℃</span><span>압력 <b data-pressure>—</b> hPa</span></div></div>
           <button id="battery-connection" class="guide-connection-link" data-guide-connection hidden>통신 연결로 이동 ↗</button>
           <button id="confirm-battery" class="confirm-battery" hidden>배터리 연결 후 USB를 분리했어요</button>
-          <p id="wiring-note" class="verification-note" hidden>그림은 기준 확장 보드의 연결 예시예요. 센서 모듈에 따라 CSB·SDO 등 추가 단자를 확인해야 해요.</p>
           </div>
           <div class="step-actions"><button id="previous-step">← 이전</button><button id="next-step" class="primary"></button></div>
-          <details class="connection-troubles"><summary>연결이 잘 안 되나요?</summary><dl><dt>장치가 목록에 없어요</dt><dd>전원과 실험 프로그램을 확인하고 다른 탭의 연결을 해제하세요.</dd><dt>전송이 안 돼요</dt><dd>Chrome·Edge에서 데이터 전송이 가능한 USB 케이블을 사용하세요. 다른 탭의 USB 연결을 해제한 뒤 다시 설치하세요.</dd><dt>연결했는데 값이 없어요</dt><dd>프로그램 설치가 완료됐는지, 네 선이 올바른 단자에 꽂혔는지 확인하세요.</dd><dt>USB를 빼면 멈춰요</dt><dd>배터리 연결과 전원을 확인한 뒤 다시 연결하세요.</dd></dl></details>
+          <div id="wiring-note" class="wiring-alternatives" hidden>
+            <p>그림은 sensor:bit 기준 예시예요.</p>
+            <details>
+              <summary>가지고 있는 확장 보드가 다르게 생겼나요?</summary>
+              <div id="board-pin-table"></div>
+            </details>
+          </div>
         </aside>
       </div>
     </section>
