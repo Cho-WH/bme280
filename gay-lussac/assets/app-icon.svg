@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 64 64" fill="none">
+  <title>게이뤼삭 실험 아이콘</title>
+  <rect x="12" y="7" width="40" height="8" rx="3" fill="#1c2024"/>
+  <rect x="12" y="18" width="40" height="2" rx="1" fill="#bd8548"/>
+  <rect x="12" y="23" width="40" height="35" rx="6" fill="#8fbbc0"/>
+  <g fill="#f6f8f7">
+    <circle cx="25" cy="34" r="3"/>
+    <circle cx="29" cy="48" r="3"/>
+  </g>
+  <circle cx="41" cy="41" r="3" fill="#bd8548"/>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#f6f8f7"/>
+  <image x="104" y="163" width="288" height="288" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiB2aWV3Qm94PSIwIDAgNjQgNjQiIGZpbGw9Im5vbmUiPgogIDx0aXRsZT7qsozsnbTrpLzsgq0g7Iuk7ZeYIOyVhOydtOy9mDwvdGl0bGU+CiAgPHJlY3QgeD0iMTIiIHk9IjciIHdpZHRoPSI0MCIgaGVpZ2h0PSI4IiByeD0iMyIgZmlsbD0iIzFjMjAyNCIvPgogIDxyZWN0IHg9IjEyIiB5PSIxOCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjIiIHJ4PSIxIiBmaWxsPSIjYmQ4NTQ4Ii8+CiAgPHJlY3QgeD0iMTIiIHk9IjIzIiB3aWR0aD0iNDAiIGhlaWdodD0iMzUiIHJ4PSI2IiBmaWxsPSIjOGZiYmMwIi8+CiAgPGcgZmlsbD0iI2Y2ZjhmNyI+CiAgICA8Y2lyY2xlIGN4PSIyNSIgY3k9IjM0IiByPSIzIi8+CiAgICA8Y2lyY2xlIGN4PSIyOSIgY3k9IjQ4IiByPSIzIi8+CiAgPC9nPgogIDxjaXJjbGUgY3g9IjQxIiBjeT0iNDEiIHI9IjMiIGZpbGw9IiNiZDg1NDgiLz4KPC9zdmc+Cg=="/>
+  <g font-family="Malgun Gothic, sans-serif">
+    <text x="460" y="256" fill="#5c7077" font-size="27">게이뤼삭 실험</text>
+    <text x="457" y="331" fill="#213d47" font-size="54" font-weight="700" letter-spacing="-2">기체의 온도와 압력</text>
+    <text x="460" y="393" fill="#5c7077" font-size="23">직접 측정하고, 관계를 발견하세요.</text>
+  </g>
+</svg>

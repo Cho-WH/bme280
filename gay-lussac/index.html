@@ -5,7 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="장치를 준비하고 밀폐한 공기의 온도와 압력을 살펴보는 게이뤼삭 실험">
   <title>기체의 온도와 압력 · 게이뤼삭 실험</title>
-  <link rel="icon" href="data:,">
+  <link rel="icon" type="image/png" sizes="32x32" href="./assets/app-icon-32.png">
+  <link rel="icon" type="image/svg+xml" href="./assets/app-icon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:site_name" content="게이뤼삭 실험">
+  <meta property="og:title" content="기체의 온도와 압력 · 게이뤼삭 실험">
+  <meta property="og:description" content="장치를 준비하고 밀폐한 공기의 온도와 압력을 살펴보는 게이뤼삭 실험">
+  <meta property="og:url" content="https://cho-wh.github.io/bme280/gay-lussac/">
+  <meta property="og:image" content="https://cho-wh.github.io/bme280/gay-lussac/assets/social-preview.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="밀폐 용기와 기체 입자 아이콘, 게이뤼삭 실험 — 기체의 온도와 압력">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="기체의 온도와 압력 · 게이뤼삭 실험">
+  <meta name="twitter:description" content="장치를 준비하고 밀폐한 공기의 온도와 압력을 살펴보는 게이뤼삭 실험">
+  <meta name="twitter:image" content="https://cho-wh.github.io/bme280/gay-lussac/assets/social-preview.png">
+  <meta name="twitter:image:alt" content="밀폐 용기와 기체 입자 아이콘, 게이뤼삭 실험 — 기체의 온도와 압력">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./ui/guide.css">
   <link rel="stylesheet" href="./ui/analysis.css">
@@ -20,7 +38,16 @@
 <body>
   <a class="skip-link" href="#main">본문으로 이동</a>
   <header class="app-header">
-    <a href="#/home" class="brand"><span class="brand-symbol" aria-hidden="true">T<span>↗</span>P</span><span><small>게이뤼삭 실험</small><strong>기체의 온도와 압력</strong></span></a>
+    <div class="header-identity">
+      <a href="#/home" class="brand"><img class="brand-symbol" src="./assets/app-icon.svg" width="36" height="36" alt=""><span><small>게이뤼삭 실험</small><strong>기체의 온도와 압력</strong></span></a>
+    <div class="header-feedback">
+      <a class="feedback-link" href="https://docs.google.com/forms/d/e/1FAIpQLScl6wM7CJNYth35y4hhw62rKpZBTfRMYwf5zOrgLwW1ntq1Cw/viewform?usp=header" target="_blank" rel="noopener noreferrer" aria-label="의견 보내기 (새 탭)"><span class="feedback-icon" aria-hidden="true"></span>의견 보내기</a>
+      <details class="feedback-more">
+        <summary>더보기</summary>
+        <a class="feedback-link" href="https://docs.google.com/forms/d/e/1FAIpQLScl6wM7CJNYth35y4hhw62rKpZBTfRMYwf5zOrgLwW1ntq1Cw/viewform?usp=header" target="_blank" rel="noopener noreferrer" aria-label="의견 보내기 (새 탭)"><span class="feedback-icon" aria-hidden="true"></span>의견 보내기</a>
+      </details>
+    </div>
+    </div>
     <div class="status-list" aria-label="장치와 저장 상태">
       <div><span class="status-label">연결</span><span id="connection-status" class="status-value">연결 안 됨</span></div>
       <div><span class="status-label">수신</span><span id="reception-status" class="status-value">값 대기</span></div>

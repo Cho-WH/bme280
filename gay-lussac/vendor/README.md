@@ -2,6 +2,8 @@
 
 파일 확보·확인일: 2026-10-11. 앱은 로컬 파일을 사용하며 실행 시 CDN에 의존하지 않습니다.
 
+의견 보내기 아이콘은 **Lucide 0.468.0**의 [message-square-plus 원본](https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/message-square-plus.svg)을 [로컬 SVG](lucide-message-square-plus.svg)로 사용합니다. 확보일: 2026-10-19. 원문을 변경하지 않고 CSS 마스크로 표시하며 기존 [ISC 라이선스](lucide-LICENSE)를 따릅니다. SHA-256: `8b55e33a7215ffcc0cd3d0bd88aafa0a00f8827b8d7646cac14df60202a7a32f`.
+
 | 사용 파일 | 버전 | 출처 | 라이선스 |
 |---|---|---|---|
 | [idb-8.0.4.umd.js](idb-8.0.4.umd.js) | idb 8.0.4 | [npm 고정 배포 파일](https://cdn.jsdelivr.net/npm/idb@8.0.4/build/umd.js), [공식 저장소](https://github.com/jakearchibald/idb/tree/v8.0.4) | [ISC](idb-LICENSE) |

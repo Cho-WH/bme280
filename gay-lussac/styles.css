@@ -195,19 +195,11 @@ button,a,summary {
 }
 
 .brand-symbol {
-  height: 42px;
-  width: 52px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 19px;
-  font-weight: 600;
-  border-bottom: 2px solid #448b88;
-}
-
-.brand-symbol span {
-  color: #c78543;
-  font-size: 24px;
+  height: 36px;
+  width: 36px;
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .status-list {
@@ -273,6 +265,17 @@ button,a,summary {
   font-size: 12px;
   color: #82928f;
 }
+
+.header-identity { display: flex; align-items: center; gap: 20px; }
+.header-feedback { flex-shrink: 0; }
+.feedback-link { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; padding: 7px 12px; border: 1px solid #e5d8c5; border-radius: 10px; background: #faf5ed; color: #795b37; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.feedback-link:hover { background: #f3e9da; border-color: #cfb794; color: #644724; }
+.feedback-icon { width: 17px; height: 17px; flex-shrink: 0; background: currentColor; mask: url('./vendor/lucide-message-square-plus.svg') center / contain no-repeat; }
+.feedback-more { display: none; position: relative; }
+.feedback-more summary { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 8px; border-radius: 10px; background: #faf5ed; color: #795b37; font-size: 12px; cursor: pointer; list-style: none; white-space: nowrap; }
+.feedback-more summary::-webkit-details-marker { display: none; }
+.feedback-more[open] summary { background: #f3e9da; color: #644724; }
+.feedback-more > .feedback-link { position: absolute; top: calc(100% + 4px); right: 0; min-height: 44px; padding: 8px 14px; z-index: 10; box-shadow: 0 5px 18px #213d4714; }
 
 main {
   max-width: 1400px;
@@ -799,8 +802,11 @@ th,td {
   }
 
   .brand strong {
-    font-size: 19px;
+    font-size: clamp(15px, 4.5vw, 19px);
   }
+
+  .header-identity { width: 100%; justify-content: space-between; gap: 10px; }
+  .header-identity .brand { gap: 10px; }
 
   .status-list {
     width: 100%;
@@ -827,6 +833,9 @@ th,td {
     gap: 23px;
     min-height: 50px;
   }
+
+  .header-feedback > .feedback-link { display: none; }
+  .feedback-more { display: block; }
 
   .main-nav>a {
     font-size: 12px;
