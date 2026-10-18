@@ -86,10 +86,8 @@ export function createAnalysisView(root, { onError, onExport = () => {} }) {
   click('use-graph-for-reflection', () => {
     if (reflection.flush() && act(() => workspace.captureReflection())) {
       changeTask('interpretation');
-      $('reflection-notice').textContent = Object.values(workspace.getState().reflection.answers).some(text => text.trim())
-        ? '가져온 그래프와 작성한 설명이 잘 연결되는지 확인해 보세요.' : '';
       root.querySelector('.analysis-tabs').scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' });
-      $('reflection-title').focus({ preventScroll: true });
+      reflection.showCapturedEvidence();
     }
   });
   function openRange() {

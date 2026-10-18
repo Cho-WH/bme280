@@ -6,42 +6,13 @@ import { createChartView } from './chart-view.js';
 export function createExperimentView(root = document) {
   const $ = id => root.querySelector('#' + id);
   let chart = null, lastChartPaint = -Infinity;
-  function renderProgram(next) {
-    $('program-message').textContent = next.message;
-    $('program-message').dataset.status = next.status;
-    $('program-progress').hidden = next.status !== 'flashing';
-    if (next.progress === null) $('program-progress').removeAttribute('value');
-    else $('program-progress').value = next.progress;
-    $('program-progress-text').textContent = next.status === 'flashing' && next.progress !== null ? `${next.progress}%` : '';
-    $('install-program').textContent = next.busy ? (next.status === 'loading' ? '프로그램 준비 중…' : '설치 진행 중…')
-      : next.status === 'success' ? '프로그램 다시 설치' : next.status === 'error' ? (next.canInstall ? '다시 설치' : '다시 준비') : 'USB로 프로그램 설치';
-    $('program-busy').hidden = !['connecting', 'flashing'].includes(next.status);
-    $('skip-program').hidden = next.status === 'success';
-    $('skip-program').disabled = next.busy;
-  }
-
-  function renderConnection({ saved, live, connection, program, actions, supported, secure }) {
+  function renderConnection({ connection, program }) {
     $('connection-status').textContent = { disconnected: '연결 안 됨', connecting: '연결 중', connected: '연결됨' }[connection.status];
     $('connection-status').dataset.active = connection.status === 'connected';
-    $('device-name').textContent = connection.deviceName && connection.status === 'connected' ? connection.deviceName : '마이크로비트 연결';
-    $('connect').disabled = !actions.canConnect;
-    if (supported && secure) $('connection-help').textContent = saved?.runStatus === 'complete'
-      ? '측정을 마친 실험이에요. 위의 추가 측정으로 이어가거나 새 실험을 시작하세요.'
-      : !actions.canConnectSource && saved ? '재생 또는 가져온 자료예요. 실제 장치 기록은 새 실험에서 시작하세요.'
-        : live?.state === 'paused' ? '기록 일시정지 중이에요. 연결해도 기록 재개 전에는 현재 값만 표시합니다.'
-          : !live ? '이어 측정을 선택한 뒤 장치를 연결해 주세요.' : '전원을 켠 뒤 사용할 장치를 선택하세요.';
-    $('install-program').disabled = program.busy || connection.busy || (!program.canInstall && program.status !== 'error');
-    $('connect').textContent = connection.status === 'connecting' ? '장치 연결 중…' : connection.status === 'connected' ? '연결됨' : '마이크로비트 연결';
-    // A pending chooser/GATT operation must settle before another attempt uses the shared BLE module.
-    $('disconnect').disabled = connection.status === 'disconnected' || connection.busy;
-    $('connection-message').textContent = connection.message;
-    $('connection-message').hidden = !connection.message;
-    if (!supported || !secure) $('connection-help').textContent = !secure
-      ? '이 주소에서는 장치를 연결할 수 없어요. https로 시작하는 실험 주소를 열어 주세요.'
-      : '장치를 연결하려면 노트북의 최신 Chrome·Edge에서 열어 주세요.';
+    $('program-busy').hidden = !['connecting', 'flashing'].includes(program.status);
   }
 
-  function renderReadings({ saved, snapshot, latestSample, now, connection, program, step, fresh, ready }) {
+  function renderReadings({ saved, snapshot, latestSample, now, fresh }) {
     $('reception-status').textContent = fresh ? '새 값 수신 중' : snapshot.latest ? '새 값 없음' : '값 대기';
     $('reception-status').dataset.active = fresh;
     const completed = saved?.runStatus === 'complete';
@@ -61,33 +32,6 @@ export function createExperimentView(root = document) {
       $(id).textContent = Number.isFinite(value) ? value.toFixed(2) : '—';
       $(id).classList.toggle('stale', !!reading && ((!completed && !fresh) || reading.validity?.[field] !== 'valid'));
     }
-    for (const [selector, field, digits] of [['[data-temperature]', 'temperatureC', 2], ['[data-pressure]', 'pressureHpa', 2]]) {
-      root.querySelectorAll(selector).forEach((element) => {
-        element.textContent = snapshot.latest ? snapshot.latest[field].toFixed(digits) : '—';
-        element.classList.toggle('stale', !fresh || snapshot.latest?.validity[field] !== 'valid');
-      });
-    }
-    const batteryStep = step.id === 'battery';
-    const check = batteryStep ? snapshot.battery : snapshot.reception;
-    const confirmed = fresh && check.ready;
-    $('check-title').textContent = batteryStep && !snapshot.battery.armed ? 'USB 분리 후 확인을 시작하세요'
-      : confirmed ? '새 값 수신을 확인했어요' : '새 값이 이어서 들어오는지 확인 중';
-    $('check-detail').textContent = snapshot.problem || (confirmed ? '새 온도·압력값이 계속 들어오고 있어요.'
-      : '새 측정값이 계속 들어오는지 확인하고 있어요.');
-    if (saved?.runStatus === 'complete') {
-      $('check-title').textContent = '측정을 마친 실험이에요';
-      $('check-detail').textContent = '위의 추가 측정에서 조건을 확인하면 수신 확인을 다시 할 수 있어요.';
-    }
-    if (['reception', 'battery'].includes(step.id)) {
-      $('step-description').textContent = saved?.runStatus === 'complete'
-        ? '측정을 마친 실험이에요. 추가 측정에서 조건을 확인하거나 새 실험을 시작한 뒤 장치를 연결해 주세요.'
-        : step.description;
-    }
-    $('reception-check').dataset.ready = confirmed;
-    $('confirm-battery').disabled = connection.status !== 'connected' || connection.busy;
-    $('confirm-battery').textContent = snapshot.battery.armed ? 'USB 분리 시점부터 다시 확인' : '배터리 연결 후 USB를 분리했어요';
-    $('next-step').disabled = program.busy || (step.id === 'program' ? program.status !== 'success'
-      : step.id === 'reception' ? !ready : batteryStep ? !confirmed : false);
   }
 
   function renderStorage({ saved, live, actions }) {
@@ -146,7 +90,7 @@ export function createExperimentView(root = document) {
 
   function resetChart() { chart?.dispose(); chart = null; lastChartPaint = -Infinity; }
   return {
-    renderProgram, renderStorage,
+    renderStorage,
     render(model) { renderConnection(model); renderReadings(model); renderRecording(model); renderStorage(model); },
     chartDue: now => !chart || now - lastChartPaint >= 1000,
     invalidateChart() { lastChartPaint = -Infinity; },

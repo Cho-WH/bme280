@@ -18,7 +18,7 @@ import { renderEvents, createEventNoteDialog } from './ui/run-view.js';
 import { createAnalysisView } from './ui/analysis-view.js';
 import { createAdditionalDialog } from './ui/additional-dialog.js';
 import { createDeleteRunDialog } from './ui/delete-run-dialog.js';
-import { createRunNameEditor } from './ui/run-name-editor.js';
+import { createSavedRunsView } from './ui/saved-runs-view.js';
 import { createGuideView } from './ui/guide-view.js';
 import { createActionHelp } from './ui/action-help.js';
 import { createExperimentGuide } from './ui/experiment-guide.js';
@@ -44,6 +44,11 @@ let lastEventPaint = -1;
 let chartRange = 'recent';
 const LAST_RUN = 'bme280.gay-lussac.last-run';
 const deleteRunDialog = createDeleteRunDialog($('delete-run-dialog'), deleteSavedRun);
+const savedRunsView = createSavedRunsView(document.querySelector('.saved-section'), {
+  onOpen(id) { void act(async () => { await openRun(id); navigate('analysis'); }); },
+  onDelete: (run, anchor) => deleteRunDialog.show(run, anchor),
+  onRename: renameSavedRun,
+});
 const analysisView = createAnalysisView(document.querySelector('[data-screen="analysis"]'), { onError: showMessage,
   onExport: (kind, anchor) => fileControls.export(kind, anchor) });
 const fileControls = createFileControls({ getSnapshot: () => runStore?.getSnapshot() ?? null,
@@ -79,7 +84,7 @@ const programmer = createProgrammer({ program: PROGRAM, onState: handleProgramSt
 let programState = programmer.getState();
 
 function storageUnavailable(message) {
-  $('saved-status').textContent = message;
+  savedRunsView.setStatus(message);
 }
 const guideView = createGuideView({ root: document.querySelector('[data-screen="prepare"]'), steps: STEPS,
   onSelectStep(step) { stepIndex = STEPS.indexOf(step); renderStep(true); },
@@ -93,8 +98,7 @@ const measurement = createMeasurementController({
 });
 function handleProgramState(next) {
   programState = next;
-  experimentView.renderProgram(next);
-  guideView.setBusy(next.busy);
+  guideView.renderProgram(next);
   if (next.status === 'success') confirmGuideStep('program');
   renderReadings();
 }
@@ -119,7 +123,7 @@ function handleConnectionState(next) {
 function measurementContext() {
   const context = { saved: runStore?.getState(), run: runStore?.getRun(), live: session?.getState(), connection,
     program: programState, profile: PROGRAM.profile, supported: transport.isSupported(), secure: isSecureContext,
-    locksSupported: Boolean(navigator.locks), screen, step: STEPS[stepIndex],
+    locksSupported: Boolean(navigator.locks), screen,
     busy: { opening: Boolean(openingRun), importing: importingRun, deleting: deletingRun, renaming: renamingRun } };
   return { ...context, actions: measurementActions(context) };
 }
@@ -128,6 +132,7 @@ function renderReadings() {
   const context = measurementContext(), now = performance.now(), snapshot = monitor.getSnapshot(now);
   const readiness = readingStatus(snapshot, connection);
   experimentGuide.setRecording(readiness.fresh && context.actions.canRecord);
+  guideView.renderStatus({ ...context, ...readiness, snapshot });
   experimentView.render({ ...context, ...readiness, snapshot, now,
     latestSample: context.saved?.runStatus === 'complete' ? runStore.getLatestSample() : null });
   if (screen === 'measure' && experimentView.chartDue(now)) {
@@ -143,27 +148,7 @@ async function listSavedRuns() {
   try {
     await repository.open();
     const runs = await repository.listRuns();
-    $('saved-runs').replaceChildren();
-    $('saved-status').textContent = runs.length ? `${runs.length}개의 실험이 이 브라우저에 저장되어 있어요.`
-      : '저장된 실험이 없습니다. 새 실험을 시작하면 여기에 기록이 남아요.';
-    for (const run of runs) {
-      const li = document.createElement('li');
-      const label = document.createElement('div'); label.className = 'saved-run-detail';
-      const meta = document.createElement('span'); meta.className = 'saved-run-meta';
-      meta.textContent = `${run.status === 'complete' ? '측정 완료' : run.status === 'paused' ? '기록 일시정지' : '미완료'} · ${run.lastSavedSampleId.toLocaleString()}개`;
-      const button = document.createElement('button'); button.textContent = '열기';
-      button.addEventListener('click', () => { void act(async () => { await openRun(run.id); navigate('analysis'); }); });
-      const actions = document.createElement('div'); actions.className = 'saved-run-actions';
-      const remove = document.createElement('button'); remove.textContent = '삭제'; remove.className = 'delete-run';
-      remove.setAttribute('aria-label', `${run.name} 삭제`);
-      remove.addEventListener('click', () => deleteRunDialog.show(run, remove));
-      label.append(createRunNameEditor(run, async name => {
-        await renameSavedRun(run.id, name);
-        remove.setAttribute('aria-label', `${name} 삭제`);
-      }), meta);
-      actions.append(button, remove); li.append(label, actions);
-      $('saved-runs').append(li);
-    }
+    savedRunsView.render(runs);
   } catch { storageUnavailable('브라우저 저장소를 열지 못했어요. 저장 허용 설정을 확인한 뒤 다시 시도해 주세요.'); }
 }
 
@@ -209,7 +194,7 @@ async function deleteSavedRun(run) {
     experimentGuide.forget(run.id);
     await listSavedRuns();
     if (current) await route();
-    showMessage('실험을 삭제했어요.'); $('saved-heading').focus({ preventScroll: true });
+    showMessage('실험을 삭제했어요.'); savedRunsView.focusHeading();
   } finally {
     if (!current) target?.dispose();
     deletingRun = false;

@@ -140,7 +140,9 @@ flowchart TD
 | `measurement/decoder.js` | `decode(line, profile)` | 내부 상태 없이 수치·필드별 유효성 또는 형식 오류 반환 |
 | `measurement/controller.js` | `acceptInput()`, `tick()`, `start()`, `dispose()`, `confirmBattery()`, `markEvent()` | 화면과 독립된 평가 일정·준비 진도 확인의 호출 순서. 활성 세션은 주입받으며 화면 전환 시 교체하지 않음 |
 | `measurement/actions.js` | `measurementActions(context)`, `readingStatus(snapshot, connection)` | 숨은 상태 없이 행동 가능 여부·수신 준비 여부 반환. 버튼과 명령이 공유 |
-| `ui/experiment-view.js` | `render(model)`, `renderProgram()`, `renderStorage()`, `renderChart()`, `dispose()` | 연결·측정·저장 DOM, 차트 자원과 표시 주기. 세션·진도·저장 수정 없음 |
+| `ui/guide-view.js` | `render(step)`, `renderProgram()`, `renderStatus()`, `dispose()` | 준비 영역의 단계 설명·버튼·설치·연결·수신 표시. 공통 상태 막대·측정 영역과 DOM 소유권을 나눔 |
+| `ui/saved-runs-view.js` | `render(runs)`, `setStatus()`, `focusHeading()` | 저장된 실험 목록·기존 이름 편집기·목록 상태·초점. 열기·수정·삭제는 앱 콜백으로 요청 |
+| `ui/experiment-view.js` | `render(model)`, `renderStorage()`, `renderChart()`, `dispose()` | 공통 상태·측정·저장 DOM, 차트 자원과 표시 주기. 세션·진도·저장 수정 없음 |
 | `measurement/session.js` | `acceptInput(input)`, `markEvent(type, payload)`, `pause()`, `resume()`, `startAdditional()`, `finish()` | 샘플 번호·수신 시각, 기록 정지·재개·입력 마감, 규칙별 상태와 `tick()` 평가 |
 | `diagnostics/` | `step(previousState, input, now, config)` | 숨은 상태 없이 `nextState`와 관측 결과 반환 |
 | `data/run-store.js` | `appendSample()`, `appendEvent()`, `updateEventNote()`, `saveWorkspace()`, `flush()`, `getSnapshot()` | 열린 Run, 사건 ID 할당, 미저장 복사본, 저장 상태·일정·작성 잠금 |
@@ -158,7 +160,7 @@ flowchart TD
 | `ui/data-table.js`, `ui/table-header.js`, `ui/column-filters.js` | 표 `render()`·`dispose()`, 헤더 `render()`·`columnCount`, 필터 팝업 `close()` | 행·가상 스크롤 / 열 배치·헤더 조작 / 필터 입력 초안을 각각 소유 |
 | `ui/chart-view.js` | 측정 `render(model)`과 분석 `render(model, selectedIds)`, `dispose()`, `exportAnalysisPng(model)` | 측정·분석 canvas·라이브러리 인스턴스·고정 크기 PNG |
 
-공통 레코드와 입력 계약은 `data/contracts.js`의 JSDoc·검증 함수로 시작한다. 의존 방향과 외부 도구 경계는 [구현 원칙 §3](ARCHITECTURE.md#3-의존-방향과-외부-도구의-경계)을 따른다. 화면은 사용자 행동을 전달하고 결과를 표시하며, 저장과 점검은 화면의 단계 번호를 입력 조건으로 사용하지 않는다. PNG의 실제 다운로드 요청은 작은 `ui/download.js`가 처리한다.
+공통 레코드와 입력 계약은 `data/contracts.js`의 JSDoc·검증 함수로 시작한다. 의존 방향과 외부 도구 경계는 [구현 원칙 §3](ARCHITECTURE.md#3-의존-방향과-외부-도구의-경계)을 따른다. 화면은 사용자 행동을 전달하고 결과를 표시하며, 저장과 점검은 화면의 단계 번호를 입력 조건으로 사용하지 않는다. PNG의 실제 다운로드 요청은 작은 `ui/download.js`가 처리한다. 결과 해석의 근거 가져오기 안내 문구와 제목 초점은 `reflection-view.showCapturedEvidence()`가 처리하고, 분석 화면은 탭 전환과 영역 배치만 조율한다.
 
 `getViewModel()`은 표 행·요약·불러온 샘플·현재 그래프를 한 번의 화면 갱신에 제공한다. 표와 결과 해석은 전달받은 모델을 사용한다. 시간 그래프 자료 변환은 `timeGraphData()`가 담당하며 차트 어댑터는 표시·좌표 변환·PNG만 맡는다.
 

@@ -99,6 +99,11 @@ export function createReflectionView(root, { getWorkspace, getStoreState, act, o
   }, { signal });
   return {
     flush, updateStatus,
+    showCapturedEvidence() {
+      $('reflection-notice').textContent = Object.values(answers()).some(text => text.trim())
+        ? '가져온 그래프와 작성한 설명이 잘 연결되는지 확인해 보세요.' : '';
+      $('reflection-title').focus({ preventScroll: true });
+    },
     render(visible, viewModel) {
       const workspace = getWorkspace(), reflection = viewModel?.state.reflection;
       if (attachedWorkspace !== workspace) {

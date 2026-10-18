@@ -39,7 +39,7 @@ RunStore는 **현재 열린 실험의 자료와 저장 상태**를 관리하는 
 | Repository | DB 연결, 스키마, 인덱스와 트랜잭션 | 일반 데이터와 완료 응답 |
 | Workspace | 불러온 자료 경계, 체크·적용·제외 ID, 시간 구간 메타데이터, 계산 열, 관계 축·추세선, 결과 해석의 보관한 근거와 글, 작업 revision과 되돌리기 | 직렬화 가능한 작업 복사본과 계산 입력 |
 | 표·차트 어댑터 | DOM·canvas·라이브러리 인스턴스, 렌더링 자원 | 사용자 행동과 표시 결과, PNG |
-| 준비 화면 뷰 | 단계·배선표·3D/표 전환의 표시, 단계 버튼 DOM과 이벤트 | 단계 선택·시점 초기화 요청. 실제 단계 이동과 장치 통신은 앱이 실행 |
+| 준비 화면 뷰 | 단계 설명·버튼, 설치·연결·배터리 수신 표시, 배선표·3D/표 전환의 DOM과 이벤트 | 단계 선택·시점 초기화 요청. 실제 단계 이동과 장치 통신은 앱이 실행 |
 
 Workspace가 작업을 수정하면 변경 처리 안에서 RunStore에 **해당 revision의 불변 복사본**을 전달한다. DB 쓰기만 묶어서 지연한다. 같은 변경 가능한 객체를 공유하지 않으며, 원자료의 화면용 캐시와 차트용 점 배열도 읽기·표시용으로만 사용한다.
 
@@ -50,13 +50,14 @@ Workspace가 작업을 수정하면 변경 처리 안에서 RunStore에 **해당
 | `app.js` | 각 모듈의 생성 함수·공개 함수 | 일반 상태, 행동 콜백 |
 | `guide/steps.js`, `guide/viewer-adapter.js` | 단계 설정, 기존 3D 프레임의 메시지 계약 | 현재 안내·모델 적용 상태 |
 | `guide/programmer-adapter.js` | 프로그램 설정, 공식 USB·HEX 라이브러리, 주입받은 전송 전 행동 | 진행률·완료·실패 상태. BLE·측정 상태를 직접 소유하지 않음 |
-| `ui/guide-view.js` | 전달받은 단계·설치 중 여부·뷰어 상태, 준비 화면 DOM, `guide-layout.js` | `render / setBusy / setViewerState / dispose`, 사용자 행동 콜백 |
+| `ui/guide-view.js` | 전달받은 단계·설치/연결/수신 상태, 준비 화면 DOM, `guide-layout.js` | `render / renderProgram / renderStatus / setViewerState / dispose`. 준비 영역의 설명·버튼·상태 표시를 단독 소유하며 장치 조작은 콜백으로 전달 |
+| `ui/saved-runs-view.js` | 실험 목록 레코드·열기/이름 변경/삭제 콜백, 목록 DOM·기존 이름 편집기 | 목록·상태 문구·삭제 후 초점 표시. Repository 접근과 실행 순서는 앱 소유 |
 | `ui/experiment-guide.js` | 안내 dialog DOM, `guide/experiment-guide-preferences.js` | 최초/수동 표시·네 페이지의 이전/다음/직접 이동·전환·닫기·초점·기록 중 표시·해제. 현재 페이지는 뷰의 임시 상태. 앱이 배치 후 화면 전환과 현재 수신/기록 여부를 전달하며 세션을 조작하지 않음 |
 | `guide/experiment-guide-preferences.js` | 브라우저 localStorage 또는 주입한 저장소, 메모리 대체 | 실험별 열람 이력과 공통 자동 표시 설정. 실험 DB·파일·준비 단계의 완료 상태와 독립 |
 | `ui/guide-layout.js` | 전달받은 측정 대상과 비활성 표시 요소 생성 함수, DOM 크기·ResizeObserver·애니메이션 | 배선 설명 최소 높이, 선택 표시 위치, 설명 전환. 장치·저장소·앱 상태를 참조하지 않음 |
 | `measurement/controller.js` | 주입받은 활성 세션·모니터·연결/행동 상태·시계·타이머 | 입력·tick·배터리/배치 확인, 준비 진도 확인·화면 갱신 콜백. 세션 수명은 앱이 유지 |
 | `measurement/actions.js` | 일반 저장·실험·연결·작업 상태 | 기록/연결/추가 측정/새 실험의 공통 가능 여부와 수신 준비 상태. 버튼과 명령이 공유 |
-| `ui/experiment-view.js` | 전달받은 표시 상태·행동 가능 여부, DOM·차트 어댑터 | 준비/측정 값·저장 상태·조작 버튼 표시와 차트 자원 정리 |
+| `ui/experiment-view.js` | 전달받은 표시 상태·행동 가능 여부, DOM·차트 어댑터 | 공통 연결/저장 상태·설치 중 알림, 측정 값·조작 버튼 표시와 차트 자원 정리. 준비 영역 DOM은 guide-view가 소유 |
 | `analysis/workspace-state.js` | 저장된 작업, 실험 ID·샘플·가져온 열 정의 | 로컬 재열기와 JSON이 공유하는 구형 작업 이행·참조 검증·기본값 정규화 |
 | `analysis/calculation-dependencies.js` | 그래프 축·계산 열 정의 | 기본 축을 포함한 전이 의존 열 목록. 입력 revision 비교와 근거 캡처가 공유 |
 | `analysis/time-series.js` | 샘플·시각·사용자 사건·표시 범위 | 시간 그래프 표시 모델과 분석 시간선이 공유하는 공백/역행 판정. DOM·Chart.js 독립 |
@@ -69,7 +70,7 @@ Workspace가 작업을 수정하면 변경 처리 안에서 RunStore에 **해당
 | `analysis/graph-data.js` | 계산 결과가 있는 원자료·Workspace 정의 | 표 필터와 무관한 분석 점·제외점·유효하지 않은 값 수·시간선 공백. DOM·Chart.js 독립 |
 | `analysis/regression.js` | 현재 그래프의 사용 점·입력 revision | 중심화·크기 조정한 최소제곱 회귀, 계수/R²/절편별 유효성, 시간축 초 단위 변환과 실선·연장선 좌표 |
 | `analysis/reflection.js` | 분석 정의·샘플·계산 계약 | 근거 캡처·검증·의미 있는 변경 비교·같은 엔진으로 표시 모델 재현 |
-| `ui/reflection-view.js` | Workspace·차트/PNG 어댑터·DOM | 근거 카드·작성 칸·조건별 질문·인쇄용 문서, RunStore 저장 상태 표시 |
+| `ui/reflection-view.js` | Workspace·차트/PNG 어댑터·DOM | 근거 카드·작성 칸·조건별 질문·인쇄용 문서, RunStore 저장 상태 표시. 근거 가져오기 안내·제목 초점은 `showCapturedEvidence()`로 표시 |
 | `ui/analysis-graph.js` | Workspace 조회·그래프 명령, 차트 어댑터 | 관계 축 즉시 적용, 차트·분석 도구 표시 |
 | `ui/trend-controls.js` | Workspace 명령·그래프 표시 모델 | 추세선 토글·보기 범위 전환·식/수치/계산 불가 이유 표시. 분석 대상과 계산을 소유하지 않음 |
 | `ui/data-table.js` | 표시할 행·체크 ID·제외 사유 | 분석 포함/범위 밖/제외·확인 중 강조·체크 요청·가상 스크롤. 32px 행 높이를 CSS 변수와 가상화 계산에서 공유 |
