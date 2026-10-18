@@ -4,6 +4,22 @@ import { createReceptionMonitor } from './reception-monitor.js';
 import { discontinuityReason } from '../diagnostics/continuity.js';
 import { validateAdditionalConditions } from './conditions.js';
 
+// Reopening saved data is not itself a new interruption or a request to connect.
+export function restoreSession({ store, monitor, newlyCreated = false, now = () => Date.now() }) {
+  const saved = store.getState();
+  if (!saved.writable || saved.source === 'import' || saved.runStatus === 'complete') return null;
+  if (newlyCreated || saved.sampleCount === 0 || saved.runStatus === 'paused') {
+    // Normalize empty experiments marked interrupted by earlier versions.
+    if (saved.sampleCount === 0 && saved.runStatus === 'interrupted') store.updateRun({ status: 'open' });
+    return createSession({ store, monitor });
+  }
+  if (saved.runStatus !== 'interrupted') {
+    store.updateRun({ status: 'interrupted' });
+    store.appendEvent({ type: 'interrupted', receivedAt: now(), payload: {}, source: 'system' });
+  }
+  return null;
+}
+
 export function createSession({ store, monitor = createReceptionMonitor(),
   clock = { utc: () => Date.now(), mono: () => performance.now() }, config = CONNECTION }) {
   const initial = store.getSnapshot();

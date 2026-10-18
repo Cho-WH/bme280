@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { openRunStore } from '../data/run-store.js';
-import { createSession } from '../measurement/session.js';
+import { createSession, restoreSession } from '../measurement/session.js';
 import { PROGRAM } from '../program-config.js';
 import { decode } from '../measurement/decoder.js';
 import { buildCsv, buildExperimentJson, parseExperimentJson } from '../data/files.js';
@@ -49,6 +49,54 @@ async function fixture(extra = {}) {
   return { repo, store, session, clock, at(value) { ms = value; },
     accept(value, overrides) { ms = value; session.acceptInput(reading(value, overrides)); } };
 }
+
+test('reopening an empty experiment restores preparation without adding interruption events', async () => {
+  const f = await fixture();
+  f.session.markEvent('placement');
+  f.store.updateRun({ status: 'interrupted' }); // Existing files may carry the old classification.
+  await f.store.close();
+  for (let i = 0; i < 2; i++) {
+    const store = await openRunStore({ repository: f.repo, id: 'test', locks: locks(), timers });
+    const session = restoreSession({ store });
+    assert.equal(session.getState().state, 'idle');
+    assert.equal(session.getState().placed, true);
+    assert.equal(store.getState().runStatus, 'open');
+    assert.deepEqual(store.getEvents().map(e => e.type), ['placement']);
+    assert.equal(store.getState().sampleCount, 0);
+    await store.close();
+  }
+});
+
+test('recorded unfinished experiments are interrupted once and stay unfinished while reopened for analysis', async () => {
+  const f = await fixture(); f.accept(0);
+  const before = f.store.getSamples(); await f.store.close();
+  for (let i = 0; i < 2; i++) {
+    const store = await openRunStore({ repository: f.repo, id: 'test', locks: locks(), timers });
+    assert.equal(restoreSession({ store, now: () => utc + 1000 }), null);
+    assert.equal(store.getState().runStatus, 'interrupted');
+    assert.equal(store.getEvents().filter(e => e.type === 'interrupted').length, 1);
+    assert.equal(store.getEvents().filter(e => e.type === 'measurement-end').length, 0);
+    assert.deepEqual(store.getSamples(), before);
+    await store.close();
+  }
+});
+
+test('restoration preserves paused and completed runs and never mutates imports or read-only data', async () => {
+  const f = await fixture(); f.accept(0); await f.session.pause();
+  const paused = f.store.getSnapshot();
+  assert.equal(restoreSession({ store: f.store }).getState().state, 'paused');
+  assert.deepEqual(f.store.getSnapshot(), paused);
+  await f.session.finish();
+  const completed = f.store.getSnapshot();
+  assert.equal(restoreSession({ store: f.store }), null);
+  assert.deepEqual(f.store.getSnapshot(), completed);
+  await f.store.close();
+  for (const state of [{ writable: false, source: 'device' }, { writable: true, source: 'import' }]) {
+    const store = { getState: () => ({ ...state, runStatus: 'open', sampleCount: 0 }),
+      updateRun() { assert.fail('must not mutate'); }, appendEvent() { assert.fail('must not append'); } };
+    assert.equal(restoreSession({ store }), null);
+  }
+});
 
 test('failed deletion keeps the writer and data usable, blocking edits until deletion settles', async () => {
   const repo = repository(), lockManager = locks();

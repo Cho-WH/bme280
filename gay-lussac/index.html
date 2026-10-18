@@ -64,7 +64,7 @@
   <noscript>이 앱을 사용하려면 JavaScript를 허용해 주세요. 기존 <a href="../bmp280-wiring/">배선 안내</a>의 연결표도 참고할 수 있어요.</noscript>
   <main id="main" tabindex="-1">
     <section id="run-tools" class="run-tools" aria-label="실험 도구">
-      <div id="current-run-summary"><strong id="run-name"></strong> <span id="run-phase" class="run-phase"></span><p id="run-summary" class="muted"></p></div>
+      <div id="current-run-summary"><strong id="run-name"></strong> <span id="run-phase" class="run-phase"></span><div class="run-summary-line"><p id="run-summary" class="muted"></p><span id="resume-panel" class="resume-inline" hidden><span>저장된 자료를 열었어요</span><button id="resume-run" type="button">이어 측정</button></span></div></div>
       <div class="button-row"><div class="help-action"><button id="download-menu-button" class="primary" popovertarget="download-menu" disabled>다운로드</button><button type="button" class="help-trigger" data-action-help="saveFiles" aria-label="저장 파일의 차이 도움말">?</button></div><button id="additional-measurement" hidden>추가 측정</button><button id="new-run">새 실험</button><div class="help-action"><button id="import-file">실험 파일 열기</button><button type="button" class="help-trigger" data-action-help="importFile" aria-label="실험 파일 열기 도움말">?</button></div></div>
     </section>
     <input id="import-file-input" type="file" accept=".csv,text/csv,.json,application/json" hidden>
@@ -87,7 +87,7 @@
     <p id="run-message" class="inline-message" role="status"></p>
     <p id="paused-notice" class="notice" role="status" hidden>기록 일시정지 중 · 현재 값만 표시하며 새 값은 저장되지 않습니다. 측정하기 화면에서 기록을 재개할 수 있어요.</p>
     <section id="storage-problem" class="notice" role="status" hidden><p id="storage-detail"></p><div class="button-row"><button id="retry-save">다시 저장</button><button id="temporary-analysis" hidden>임시 자료로 분석</button></div></section>
-    <section id="resume-panel" class="notice" hidden><p id="resume-message"></p><div class="button-row"><button id="resume-run">이어 측정</button><button id="analyze-unfinished">여기까지 분석</button><button id="retry-lock" hidden>다시 확인</button></div></section>
+    <section id="run-access-notice" class="notice" hidden><p id="run-access-message"></p><div class="button-row"><button id="retry-lock">다시 확인</button></div></section>
     <p id="program-busy" class="notice" role="status" hidden>USB 프로그램 설치를 진행 중이에요. 장치 준비 화면에서 진행 상황을 확인하고 USB와 이 탭을 유지해 주세요.</p>
 
 

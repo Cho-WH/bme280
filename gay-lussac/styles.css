@@ -1031,6 +1031,11 @@ th,td {
   font-size: 13px;
 }
 
+.run-summary-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+.run-summary-line > p { margin: 0; }
+.resume-inline { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.run-tools .resume-inline button { min-height: 30px; padding: 3px 8px; background: transparent; color: var(--teal); }
+
 .run-tools .button-row {
   flex-shrink: 0;
   margin-left: auto;
